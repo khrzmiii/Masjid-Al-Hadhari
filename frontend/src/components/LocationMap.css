@@ -1,0 +1,138 @@
+.location-section {
+  padding: 4rem 2rem;
+  background-color: white;
+}
+
+.location-container {
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.location-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.location-header h2 {
+  color: var(--color-primary);
+  font-size: 2rem;
+  margin: 0.5rem 0;
+}
+
+.location-header p {
+  color: #475569;
+  font-size: 1.1rem;
+}
+
+.contact-grid {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 2rem;
+  align-items: start;
+}
+
+.contact-info {
+  display: flex;
+  flex-direction: column;
+  padding: 2rem;
+  background-color: var(--color-bg-alt);
+  border-radius: 12px;
+  height: 100%;
+}
+
+.contact-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.contact-icon-wrapper {
+  background-color: rgba(207, 169, 91, 0.2);
+  padding: 0.75rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.contact-details h3 {
+  font-size: 1.1rem;
+  color: var(--color-primary);
+  margin-bottom: 0.25rem;
+}
+
+.contact-details p {
+  color: #475569;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.map-section {
+  display: flex;
+  flex-direction: column;
+}
+
+.map-wrapper {
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+  margin-bottom: 2rem;
+  border: 4px solid white;
+}
+
+.nav-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  width: 100%;
+}
+
+.nav-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  border-radius: 50px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.nav-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+}
+
+.google-btn {
+  background-color: #ea4335;
+  color: white;
+  border: none;
+  box-shadow: 0 4px 6px -1px rgba(234, 67, 53, 0.4);
+}
+
+.google-btn:hover {
+  background-color: #d62516;
+  border-color: transparent;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 8px -1px rgba(234, 67, 53, 0.5);
+}
+
+.waze-btn {
+  background-color: #0099ff;
+  color: white;
+  border: none;
+  box-shadow: 0 4px 6px -1px rgba(0, 153, 255, 0.4);
+}
+
+.waze-btn:hover {
+  background-color: #0088e6;
+  border-color: transparent;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 8px -1px rgba(0, 153, 255, 0.5);
+}
+
+@media (max-width: 768px) {
+  .contact-grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,134 @@
+.donation-widget {
+  padding: 2rem;
+}
+
+.donation-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.donation-header h2 {
+  margin: 0;
+}
+
+.donation-subtitle {
+  color: var(--color-text-muted);
+  margin-bottom: 2rem;
+}
+
+.donation-categories {
+  display: flex;
+  gap: 0.5rem;
+  background: var(--color-bg-alt);
+  padding: 0.5rem;
+  border-radius: var(--radius-full);
+  margin-bottom: 2rem;
+}
+
+.donation-tab {
+  flex: 1;
+  background: transparent;
+  border: none;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-full);
+  font-family: var(--font-family);
+  font-weight: 600;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.donation-tab:hover {
+  color: var(--color-primary);
+}
+
+.donation-tab.active {
+  background: var(--color-bg-card);
+  color: var(--color-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.donation-content {
+  display: flex;
+  gap: 2rem;
+  align-items: center;
+}
+
+.qr-container {
+  flex: 0 0 200px;
+}
+
+.qr-placeholder {
+  width: 200px;
+  height: 200px;
+  background-color: var(--color-primary-light);
+  color: white;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  text-align: center;
+  font-weight: 700;
+  font-size: 1.25rem;
+  border: 8px solid white;
+  box-shadow: var(--shadow-md);
+}
+
+.qr-placeholder small {
+  font-weight: 400;
+  font-size: 0.85rem;
+  margin-top: 0.5rem;
+  opacity: 0.9;
+}
+
+.donation-info {
+  flex: 1;
+}
+
+.info-desc {
+  font-size: 1.1rem;
+  margin-bottom: 1.5rem;
+  color: var(--color-text-main);
+}
+
+.info-alert {
+  display: flex;
+  gap: 0.75rem;
+  background-color: rgba(10, 79, 50, 0.05);
+  padding: 1rem;
+  border-radius: var(--radius-sm);
+  border-left: 4px solid var(--color-primary);
+  margin-bottom: 1.5rem;
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+  align-items: flex-start;
+}
+
+.info-alert .lucide {
+  color: var(--color-primary);
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+}
+
+.full-width {
+  width: 100%;
+}
+
+@media (max-width: 768px) {
+  .donation-content {
+    flex-direction: column;
+  }
+  .qr-container {
+    margin: 0 auto;
+  }
+  .donation-categories {
+    flex-direction: column;
+    border-radius: var(--radius-md);
+  }
+  .donation-tab {
+    border-radius: var(--radius-md);
+  }
+}
