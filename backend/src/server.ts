@@ -603,6 +603,7 @@ router.get('/public/receipts/:id', async (req: Request, res: Response) => {
     }
     
     res.setHeader('Content-Type', row.mime_type);
+    res.setHeader('Content-Disposition', `inline; filename="${row.file_name}"`);
     res.send(row.data);
   } catch (err) {
     console.error('Error getting receipt:', err);
