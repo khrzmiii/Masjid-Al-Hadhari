@@ -458,6 +458,22 @@ router.post('/admin/users', verifyToken, verifyRole(['pengerusi']), async (req: 
     res.status(500).json({ error: 'Internal server error' });
   }
 });
+
+router.delete('/admin/users/:id', verifyToken, verifySuperAdmin, async (req: AuthRequest, res: Response) => {
+  try {
+    const db = await getDb();
+    const userId = req.params.id;
+
+    if (req.user?.id === userId) {
+      return res.status(400).json({ error: 'Anda tidak boleh memadam akaun anda sendiri.' });
+    }
+
+    await db.run('DELETE FROM users WHERE id = ?', [userId]);
+    res.status(200).json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
 // --- Events API ---
 router.post('/admin/events', verifyToken, verifyRole(['setiausaha', 'super_admin']), async (req: AuthRequest, res: Response) => {
   try {

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, Users, Calendar as CalendarIcon, Settings, Home, Menu, X, Wallet, Package, TrendingUp, TrendingDown, DollarSign } from 'lucide-react';
+import { LogOut, Users, Calendar as CalendarIcon, Settings, Home, Menu, X, Wallet, Package, TrendingUp, TrendingDown, DollarSign, Trash2 } from 'lucide-react';
 import './AdminDashboard.css';
 
 interface UserData {
@@ -510,6 +510,26 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
+  const handleDeleteUser = async (id: string, name: string) => {
+    if (!window.confirm(`Adakah anda pasti mahu memadam akaun pengguna ${name}? Tindakan ini tidak boleh diundur.`)) return;
+    try {
+      const response = await fetch(`/api/v1/admin/users/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (response.ok) {
+        fetchUsers();
+      } else {
+        const data = await response.json();
+        alert(data.error || 'Gagal memadam pengguna.');
+      }
+    } catch (err) {
+      alert('Ralat pelayan.');
+    }
+  };
+
   const handleLogout = () => {
     localStorage.removeItem('adminToken');
     localStorage.removeItem('adminUser');
@@ -725,6 +745,15 @@ const AdminDashboard: React.FC = () => {
                                   <option value="timbalan_pengerusi" disabled={hasTimbalan && u.role !== 'timbalan_pengerusi'}>Timbalan Pengerusi {(hasTimbalan && u.role !== 'timbalan_pengerusi') && '(Telah Diisi)'}</option>
                                   <option value="public">Awam</option>
                                 </select>
+                              )}
+                              {u.name !== user?.name && (
+                                <button 
+                                  onClick={() => handleDeleteUser(u.id, u.name)}
+                                  style={{ marginLeft: '1rem', padding: '0.5rem', backgroundColor: '#fee2e2', color: '#ef4444', border: 'none', borderRadius: '8px', cursor: 'pointer', verticalAlign: 'middle', transition: 'all 0.2s' }}
+                                  title="Padam Pengguna"
+                                >
+                                  <Trash2 size={18} />
+                                </button>
                               )}
                             </td>
                           </tr>
