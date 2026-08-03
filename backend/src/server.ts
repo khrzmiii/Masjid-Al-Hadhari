@@ -9,6 +9,7 @@ import multer from 'multer';
 import path from 'path';
 import { OAuth2Client } from 'google-auth-library';
 import nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 
 dotenv.config();
 
@@ -151,17 +152,12 @@ router.post('/public/forms', async (req: Request, res: Response) => {
   try {
     const db = await getDb();
     const { form_type, submitter_name, submitter_email, submitter_phone, details } = req.body;
-    
-    if (!form_type || !submitter_name) {
-      return res.status(400).json({ error: 'Borang tidak lengkap. Sila isi medan yang wajib.' });
-    }
-
+    if (!form_type || !submitter_name) return res.status(400).json({ error: 'Borang tidak lengkap.' });
     const id = randomUUID();
     await db.run(
       `INSERT INTO form_submissions (id, form_type, submitter_name, submitter_email, submitter_phone, details) VALUES (?, ?, ?, ?, ?, ?)`,
       [id, form_type, submitter_name, submitter_email, submitter_phone, JSON.stringify(details || {})]
     );
-
     res.status(201).json({ success: true, message: 'Borang berjaya dihantar.', id });
   } catch (err) {
     console.error('Form submission error:', err);
@@ -178,112 +174,53 @@ router.post('/auth/register', async (req: Request, res: Response) => {
   try {
     const db = await getDb();
     const { name, email, password } = req.body;
-    
-    if (!name || !email || !password) {
-      return res.status(400).json({ error: 'Sila lengkapkan semua maklumat.' });
-    }
-
+    if (!name || !email || !password) return res.status(400).json({ error: 'Sila lengkapkan semua maklumat.' });
     const existingUser = await db.get('SELECT * FROM users WHERE email = ?', [email]);
-    if (existingUser) {
-      return res.status(400).json({ error: 'Emel ini telah didaftarkan.' });
-    }
-
+    if (existingUser) return res.status(400).json({ error: 'Emel ini telah didaftarkan.' });
     const hash = await bcrypt.hash(password, 10);
     const id = randomUUID();
     const verificationToken = randomBytes(32).toString('hex');
-    
     await db.run(
       'INSERT INTO users (id, name, email, password_hash, role, auth_provider, email_verified, verification_token) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
       [id, name, email, hash, 'public', 'local', false, verificationToken]
     );
-
     const baseUrl = process.env.APP_URL || 'https://masjid-al-hadhari.onrender.com';
     const verificationLink = `${baseUrl}/verify-email?token=${verificationToken}`;
-    
-    // Real SMTP sending logic
-    if (process.env.SMTP_USER && process.env.SMTP_PASS) {
-      console.log(`[SMTP] Cuba hantar e-mel ke: ${email} menggunakan: ${process.env.SMTP_USER}`);
+    const emailHtml = `<div style="font-family:Arial,sans-serif;padding:20px;max-width:600px;margin:0 auto;border:1px solid #e5e7eb;border-radius:8px"><h2 style="color:#047857;text-align:center">Selamat Datang!</h2><p>Terima kasih kerana mendaftar akaun di Sistem Pengurusan Masjid Al-Hadhari.</p><div style="text-align:center;margin:30px 0"><a href="${verificationLink}" style="background-color:#059669;color:white;padding:12px 24px;text-decoration:none;border-radius:6px;font-weight:bold;display:inline-block">Sahkan E-mel Saya</a></div><p style="font-size:13px;color:#6b7280;text-align:center">Pautan: ${verificationLink}</p></div>`;
+    if (process.env.RESEND_API_KEY) {
       try {
-        const transporter = nodemailer.createTransport({
-          host: process.env.SMTP_HOST || 'smtp.gmail.com',
-          port: parseInt(process.env.SMTP_PORT || '587'),
-          family: 4, // Force IPv4 - Render free tier tidak sokong IPv6
-          secure: process.env.SMTP_SECURE === 'true',
-          auth: {
-            user: process.env.SMTP_USER,
-            pass: process.env.SMTP_PASS,
-          },
-        });
-
-        const mailOptions = {
-          from: `"Sistem Pengurusan Masjid Al-Hadhari" <${process.env.SMTP_USER}>`,
-          to: email,
-          subject: 'Sahkan E-mel Akaun Anda',
-          html: `
-            <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 8px;">
-              <h2 style="color: #047857; text-align: center;">Selamat Datang!</h2>
-              <p>Terima kasih kerana mendaftar akaun di Sistem Pengurusan Masjid Al-Hadhari. Untuk memastikan keselamatan akaun anda, sila sahkan e-mel ini.</p>
-              <div style="text-align: center; margin: 30px 0;">
-                <a href="${verificationLink}" style="background-color: #059669; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Sahkan E-mel Saya</a>
-              </div>
-              <p style="font-size: 13px; color: #6b7280; text-align: center;">Jika butang di atas tidak berfungsi, anda boleh menyalin pautan berikut:<br/>${verificationLink}</p>
-              <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;" />
-              <p style="font-size: 12px; color: #9ca3af; text-align: center;">Ini adalah mesej automatik. Sila jangan balas e-mel ini.</p>
-            </div>
-          `
-        };
-
-        await transporter.sendMail(mailOptions);
-        console.log(`[SMTP] E-mel pengesahan berjaya dihantar ke: ${email}`);
-      } catch (smtpErr: any) {
-        console.error(`[SMTP ERROR] Gagal menghantar e-mel ke ${email}:`, smtpErr.message);
-      }
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        await resend.emails.send({ from: 'Sistem Masjid Al-Hadhari <onboarding@resend.dev>', to: [email], subject: 'Sahkan E-mel Akaun Anda', html: emailHtml });
+        console.log(`[EMAIL] Berjaya dihantar ke: ${email}`);
+      } catch (e: any) { console.error('[EMAIL ERROR]', e.message); }
+    } else if (process.env.SMTP_USER && process.env.SMTP_PASS) {
+      try {
+        const t = nodemailer.createTransport({ service: 'gmail', auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } });
+        await t.sendMail({ from: `"Masjid Al-Hadhari" <${process.env.SMTP_USER}>`, to: email, subject: 'Sahkan E-mel Akaun Anda', html: emailHtml });
+        console.log(`[SMTP] Berjaya dihantar ke: ${email}`);
+      } catch (e: any) { console.error('[SMTP ERROR]', e.message); }
     } else {
-      console.log(`\n\n=== E-MEL PENGESAHAN (MOCK) ===\nKepada: ${email}\nPautan: ${verificationLink}\n================================\n\n`);
-      console.warn("Amaran: SMTP_USER atau SMTP_PASS tidak dijumpai dalam environment variables.");
+      console.log(`[MOCK] Pautan: ${verificationLink}`);
     }
-
-    res.status(201).json({ success: true, message: 'Pendaftaran berjaya. Sila semak peti masuk e-mel anda untuk pengesahan pautan.' });
+    res.status(201).json({ success: true, message: 'Pendaftaran berjaya. Sila semak peti masuk e-mel anda.' });
   } catch (err) {
     console.error('Register error:', err);
     res.status(500).json({ error: 'Ralat pelayan.' });
   }
 });
 
-
 router.post('/auth/login', async (req: Request, res: Response) => {
   try {
     const db = await getDb();
     const { email, password } = req.body;
-    
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Sila masukkan emel dan kata laluan.' });
-    }
-
+    if (!email || !password) return res.status(400).json({ error: 'Sila masukkan emel dan kata laluan.' });
     const user = await db.get('SELECT * FROM users WHERE email = ?', [email]);
-    if (!user) {
-      return res.status(401).json({ error: 'Akaun tidak dijumpai.' });
-    }
-
-    if (user.auth_provider === 'google') {
-      return res.status(400).json({ error: 'Sila log masuk menggunakan Google.' });
-    }
-
-    if (user.email_verified === false || user.email_verified === 0) {
-      return res.status(403).json({ error: 'Sila sahkan e-mel anda sebelum log masuk.' });
-    }
-
+    if (!user) return res.status(401).json({ error: 'Akaun tidak dijumpai.' });
+    if (user.auth_provider === 'google') return res.status(400).json({ error: 'Sila log masuk menggunakan Google.' });
+    if (user.email_verified === false || user.email_verified === 0) return res.status(403).json({ error: 'Sila sahkan e-mel anda sebelum log masuk.' });
     const isMatch = await bcrypt.compare(password, user.password_hash);
-    if (!isMatch) {
-      return res.status(401).json({ error: 'Kata laluan tidak sah.' });
-    }
-
-    const token = jwt.sign(
-      { id: user.id, email: user.email, role: user.role },
-      JWT_SECRET,
-      { expiresIn: '8h' }
-    );
-
+    if (!isMatch) return res.status(401).json({ error: 'Kata laluan tidak sah.' });
+    const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '8h' });
     res.status(200).json({ success: true, token, user: { name: user.name, role: user.role } });
   } catch (err) {
     console.error('Login error:', err);
@@ -295,18 +232,10 @@ router.post('/auth/verify', async (req: Request, res: Response) => {
   try {
     const db = await getDb();
     const { token } = req.body;
-
-    if (!token) {
-      return res.status(400).json({ error: 'Token tidak sah.' });
-    }
-
+    if (!token) return res.status(400).json({ error: 'Token tidak sah.' });
     const user = await db.get('SELECT * FROM users WHERE verification_token = ?', [token]);
-    if (!user) {
-      return res.status(400).json({ error: 'Pautan pengesahan tidak sah atau telah luput.' });
-    }
-
+    if (!user) return res.status(400).json({ error: 'Pautan pengesahan tidak sah atau telah luput.' });
     await db.run('UPDATE users SET email_verified = true, verification_token = NULL WHERE id = ?', [user.id]);
-    
     res.status(200).json({ success: true, message: 'E-mel berjaya disahkan. Anda kini boleh log masuk.' });
   } catch (err) {
     console.error('Verify error:', err);
@@ -318,52 +247,25 @@ router.post('/auth/google', async (req: Request, res: Response) => {
   try {
     const db = await getDb();
     const { credential } = req.body;
-
-    const ticket = await googleClient.verifyIdToken({
-      idToken: credential,
-      audience: GOOGLE_CLIENT_ID,
-    });
-    
+    const ticket = await googleClient.verifyIdToken({ idToken: credential, audience: GOOGLE_CLIENT_ID });
     const payload = ticket.getPayload();
-    if (!payload || !payload.email) {
-      return res.status(400).json({ error: 'Token Google tidak sah.' });
-    }
-
+    if (!payload || !payload.email) return res.status(400).json({ error: 'Token Google tidak sah.' });
     const email = payload.email;
     const name = payload.name || 'Pengguna Google';
     const googleId = payload.sub;
-
     let user = await db.get('SELECT * FROM users WHERE email = ?', [email]);
-    
     if (user) {
-      // If user exists but is local, we link the google account? 
-      // For now, let's just let them login and maybe update auth_provider if we want.
-      // Better: If they try to google login with a local email, we can link it.
       if (user.auth_provider === 'local') {
         await db.run('UPDATE users SET auth_provider = ?, google_id = ?, email_verified = true WHERE id = ?', ['google', googleId, user.id]);
-        user.auth_provider = 'google';
-        user.google_id = googleId;
-        user.email_verified = true;
+        user.auth_provider = 'google'; user.google_id = googleId; user.email_verified = true;
       }
     } else {
-      // Register new Google user
       const id = randomUUID();
-      const hash = await bcrypt.hash(randomBytes(16).toString('hex'), 10); // Random password for google users
-      
-      await db.run(
-        'INSERT INTO users (id, name, email, password_hash, role, auth_provider, email_verified, google_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-        [id, name, email, hash, 'public', 'google', true, googleId]
-      );
-      
+      const hash = await bcrypt.hash(randomBytes(16).toString('hex'), 10);
+      await db.run('INSERT INTO users (id, name, email, password_hash, role, auth_provider, email_verified, google_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', [id, name, email, hash, 'public', 'google', true, googleId]);
       user = await db.get('SELECT * FROM users WHERE id = ?', [id]);
     }
-
-    const token = jwt.sign(
-      { id: user.id, email: user.email, role: user.role },
-      JWT_SECRET,
-      { expiresIn: '8h' }
-    );
-
+    const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '8h' });
     res.status(200).json({ success: true, token, user: { name: user.name, role: user.role } });
   } catch (err) {
     console.error('Google Auth error:', err);
@@ -375,17 +277,9 @@ router.put('/auth/profile', verifyToken, async (req: AuthRequest, res: Response)
   try {
     const db = await getDb();
     const { name } = req.body;
-    
-    if (!name) {
-      return res.status(400).json({ error: 'Nama tidak boleh kosong.' });
-    }
-
-    if (!req.user || !req.user.id) {
-      return res.status(401).json({ error: 'Tidak dibenarkan.' });
-    }
-
+    if (!name) return res.status(400).json({ error: 'Nama tidak boleh kosong.' });
+    if (!req.user || !req.user.id) return res.status(401).json({ error: 'Tidak dibenarkan.' });
     await db.run('UPDATE users SET name = ? WHERE id = ?', [name, req.user.id]);
-    
     res.status(200).json({ success: true, message: 'Profil berjaya dikemaskini.', user: { name, role: req.user.role } });
   } catch (err) {
     console.error('Update profile error:', err);
@@ -394,20 +288,21 @@ router.put('/auth/profile', verifyToken, async (req: AuthRequest, res: Response)
 });
 
 // --- Admin Endpoints ---
-router.get('/admin/users', verifyToken, verifyRole(['pengerusi']), async (req: AuthRequest, res: Response) => {
+router.get('/admin/users', verifyToken, verifyRole(['super_admin', 'pengerusi']), async (req: AuthRequest, res: Response) => {
   try {
     const db = await getDb();
     let rows;
     if (req.user?.role === 'super_admin') {
       rows = await db.all('SELECT id, name, email, role, created_at FROM users ORDER BY created_at DESC');
     } else {
-      rows = await db.all('SELECT id, name, email, role, created_at FROM users WHERE role != \'super_admin\' ORDER BY created_at DESC');
+      rows = await db.all("SELECT id, name, email, role, created_at FROM users WHERE role != 'super_admin' ORDER BY created_at DESC");
     }
     res.status(200).json({ data: rows });
   } catch (err) {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
+
 
 // Update user role
 router.put('/admin/users/:id/role', verifyToken, verifyRole(['pengerusi']), async (req: AuthRequest, res: Response) => {
