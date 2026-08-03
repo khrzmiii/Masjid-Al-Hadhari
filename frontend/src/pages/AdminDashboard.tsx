@@ -855,7 +855,7 @@ const AdminDashboard: React.FC = () => {
                       <h4 style={{ color: '#a7f3d0', margin: '0 0 0.5rem 0', fontWeight: '500', fontSize: '1.1rem' }}>Jumlah Pemasukan</h4>
                       <h2 style={{ margin: 0, fontSize: '2.5rem', fontWeight: '700', textShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
                         <span style={{ fontSize: '1.5rem', opacity: 0.8, marginRight: '4px' }}>RM</span>
-                        {filteredTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0).toFixed(2)}
+                        {filteredTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + Number(t.amount || 0), 0).toFixed(2)}
                       </h2>
                     </div>
                     <div style={{ padding: '1rem', background: 'rgba(255,255,255,0.1)', borderRadius: '50%', backdropFilter: 'blur(10px)' }}>
@@ -870,7 +870,7 @@ const AdminDashboard: React.FC = () => {
                       <h4 style={{ color: '#fecaca', margin: '0 0 0.5rem 0', fontWeight: '500', fontSize: '1.1rem' }}>Jumlah Perbelanjaan</h4>
                       <h2 style={{ margin: 0, fontSize: '2.5rem', fontWeight: '700', textShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
                         <span style={{ fontSize: '1.5rem', opacity: 0.8, marginRight: '4px' }}>RM</span>
-                        {filteredTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0).toFixed(2)}
+                        {filteredTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + Number(t.amount || 0), 0).toFixed(2)}
                       </h2>
                     </div>
                     <div style={{ padding: '1rem', background: 'rgba(255,255,255,0.1)', borderRadius: '50%', backdropFilter: 'blur(10px)' }}>
@@ -886,8 +886,8 @@ const AdminDashboard: React.FC = () => {
                       <h2 style={{ margin: 0, fontSize: '2.5rem', fontWeight: '700', textShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
                         <span style={{ fontSize: '1.5rem', opacity: 0.8, marginRight: '4px' }}>RM</span>
                         {(
-                          filteredTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0) -
-                          filteredTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0)
+                          filteredTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + Number(t.amount || 0), 0) -
+                          filteredTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + Number(t.amount || 0), 0)
                         ).toFixed(2)}
                       </h2>
                     </div>
@@ -1034,7 +1034,7 @@ const AdminDashboard: React.FC = () => {
                             </span>
                           </td>
                           <td style={{ padding: '1.25rem 1rem', textAlign: 'right', fontWeight: '800', fontSize: '1.15rem', color: t.type === 'income' ? '#16a34a' : '#ef4444' }}>
-                            {t.type === 'income' ? '+' : '-'}{t.amount.toFixed(2)}
+                            {t.type === 'income' ? '+' : '-'}{Number(t.amount || 0).toFixed(2)}
                           </td>
                           {(user?.role === 'super_admin' || user?.role === 'bendahari') && (
                             <td style={{ padding: '1.25rem 1rem', textAlign: 'center' }}>
