@@ -34,6 +34,7 @@ export default defineConfig({
         ]
       },
       workbox: {
+        navigateFallbackDenylist: [/^\/api/],
         // Cache the public portal read-only content for offline fallback (FR-PUB-007)
         runtimeCaching: [
           {
