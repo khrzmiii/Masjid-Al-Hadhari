@@ -47,27 +47,78 @@ router.post('/upload', verifyToken, upload.single('image'), (req: AuthRequest, r
 });
 
 // --- Public Endpoints ---
-router.get('/public/prayer-times', (req: Request, res: Response) => {
-  // Mock data for initial MVP
-  res.status(200).json({
-    data: {
-      zone: req.query.zone || "SBH07",
-      date: new Date().toISOString().split('T')[0],
-      times: {
-        fajr: "05:05",
-        dhuhr: "12:25",
-        asr: "15:47",
-        maghrib: "18:28",
-        isha: "19:40"
-      }
-    },
-    meta: {
-      source: "mock-adapter",
-      last_updated: new Date().toISOString(),
-      stale: false,
-      correlation_id: "req_01"
+router.get('/public/prayer-times', async (req: Request, res: Response) => {
+  try {
+    const zone = (req.query.zone as string) || "SBH07";
+    
+    // Fetch live data from e-solat JAKIM
+    const jakimUrl = `https://www.e-solat.gov.my/index.php?r=esolatApi/takwimsolat&period=today&zone=${zone}`;
+    const response = await fetch(jakimUrl);
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch from JAKIM: ${response.statusText}`);
     }
-  });
+    
+    const jakimData = await response.json();
+    
+    if (jakimData.status !== 'OK!' || !jakimData.prayerTime || jakimData.prayerTime.length === 0) {
+      throw new Error('Invalid data format from JAKIM API');
+    }
+    
+    const todayData = jakimData.prayerTime[0];
+    
+    // Format times to HH:mm by removing seconds if necessary
+    const formatTime = (timeStr: string) => {
+      if (!timeStr) return "";
+      const parts = timeStr.split(':');
+      if (parts.length >= 2) {
+        return `${parts[0]}:${parts[1]}`;
+      }
+      return timeStr;
+    };
+    
+    res.status(200).json({
+      data: {
+        zone: jakimData.zone || zone,
+        date: new Date().toISOString().split('T')[0],
+        times: {
+          fajr: formatTime(todayData.fajr),
+          syuruk: formatTime(todayData.syuruk),
+          dhuhr: formatTime(todayData.dhuhr),
+          asr: formatTime(todayData.asr),
+          maghrib: formatTime(todayData.maghrib),
+          isha: formatTime(todayData.isha)
+        }
+      },
+      meta: {
+        source: "e-solat-jakim",
+        last_updated: jakimData.serverTime || new Date().toISOString(),
+        stale: false
+      }
+    });
+  } catch (error) {
+    console.error("Prayer times error:", error);
+    // Fallback to basic times if JAKIM is down
+    res.status(200).json({
+      data: {
+        zone: req.query.zone || "SBH07",
+        date: new Date().toISOString().split('T')[0],
+        times: {
+          fajr: "04:50",
+          syuruk: "06:15",
+          dhuhr: "12:20",
+          asr: "15:40",
+          maghrib: "18:25",
+          isha: "19:35"
+        }
+      },
+      meta: {
+        source: "mock-fallback",
+        error: error instanceof Error ? error.message : "Unknown error",
+        stale: true
+      }
+    });
+  }
 });
 
 import { getDb } from './db';
