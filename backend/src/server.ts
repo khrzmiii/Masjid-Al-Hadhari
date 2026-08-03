@@ -197,7 +197,8 @@ router.post('/auth/register', async (req: Request, res: Response) => {
       [id, name, email, hash, 'public', 'local', false, verificationToken]
     );
 
-    const verificationLink = `http://localhost:5173/verify-email?token=${verificationToken}`;
+    const baseUrl = process.env.NODE_ENV === 'production' ? 'https://masjid-al-hadhari.onrender.com' : 'http://localhost:5173';
+    const verificationLink = `${baseUrl}/verify-email?token=${verificationToken}`;
     
     // Real SMTP sending logic
     if (process.env.SMTP_USER && process.env.SMTP_PASS) {
