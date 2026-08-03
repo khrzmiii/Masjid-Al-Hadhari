@@ -38,12 +38,13 @@ const memoryUpload = multer({ storage: memoryStorage });
 const router = express.Router();
 
 // --- Upload Endpoint ---
-router.post('/upload', verifyToken, upload.single('image'), (req: AuthRequest, res: Response) => {
+router.post('/upload', verifyToken, memoryUpload.single('image'), (req: AuthRequest, res: Response) => {
   if (!req.file) {
     return res.status(400).json({ error: 'No file uploaded' });
   }
-  const imageUrl = `/uploads/${req.file.filename}`;
-  res.status(200).json({ url: imageUrl });
+  // Convert buffer to base64 data URI to avoid Render ephemeral file system issues
+  const base64Image = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+  res.status(200).json({ url: base64Image });
 });
 
 // --- Public Endpoints ---
