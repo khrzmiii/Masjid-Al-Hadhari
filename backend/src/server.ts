@@ -197,43 +197,49 @@ router.post('/auth/register', async (req: Request, res: Response) => {
       [id, name, email, hash, 'public', 'local', false, verificationToken]
     );
 
-    const baseUrl = process.env.NODE_ENV === 'production' ? 'https://masjid-al-hadhari.onrender.com' : 'http://localhost:5173';
+    const baseUrl = process.env.APP_URL || 'https://masjid-al-hadhari.onrender.com';
     const verificationLink = `${baseUrl}/verify-email?token=${verificationToken}`;
     
     // Real SMTP sending logic
     if (process.env.SMTP_USER && process.env.SMTP_PASS) {
-      const transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST || 'smtp.gmail.com',
-        port: parseInt(process.env.SMTP_PORT || '587'),
-        secure: process.env.SMTP_SECURE === 'true', // true for 465, false for other ports
-        auth: {
-          user: process.env.SMTP_USER,
-          pass: process.env.SMTP_PASS,
-        },
-      });
+      console.log(`[SMTP] Cuba hantar e-mel ke: ${email} menggunakan: ${process.env.SMTP_USER}`);
+      try {
+        const transporter = nodemailer.createTransport({
+          host: process.env.SMTP_HOST || 'smtp.gmail.com',
+          port: parseInt(process.env.SMTP_PORT || '587'),
+          secure: process.env.SMTP_SECURE === 'true',
+          auth: {
+            user: process.env.SMTP_USER,
+            pass: process.env.SMTP_PASS,
+          },
+        });
 
-      const mailOptions = {
-        from: `"Sistem Pengurusan Masjid Al-Hadhari" <${process.env.SMTP_USER}>`,
-        to: email,
-        subject: 'Sahkan E-mel Akaun Anda',
-        html: `
-          <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 8px;">
-            <h2 style="color: #047857; text-align: center;">Selamat Datang!</h2>
-            <p>Terima kasih kerana mendaftar akaun di Sistem Pengurusan Masjid Al-Hadhari. Untuk memastikan keselamatan akaun anda, sila sahkan e-mel ini.</p>
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${verificationLink}" style="background-color: #059669; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Sahkan E-mel Saya</a>
+        const mailOptions = {
+          from: `"Sistem Pengurusan Masjid Al-Hadhari" <${process.env.SMTP_USER}>`,
+          to: email,
+          subject: 'Sahkan E-mel Akaun Anda',
+          html: `
+            <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 8px;">
+              <h2 style="color: #047857; text-align: center;">Selamat Datang!</h2>
+              <p>Terima kasih kerana mendaftar akaun di Sistem Pengurusan Masjid Al-Hadhari. Untuk memastikan keselamatan akaun anda, sila sahkan e-mel ini.</p>
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${verificationLink}" style="background-color: #059669; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Sahkan E-mel Saya</a>
+              </div>
+              <p style="font-size: 13px; color: #6b7280; text-align: center;">Jika butang di atas tidak berfungsi, anda boleh menyalin pautan berikut:<br/>${verificationLink}</p>
+              <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;" />
+              <p style="font-size: 12px; color: #9ca3af; text-align: center;">Ini adalah mesej automatik. Sila jangan balas e-mel ini.</p>
             </div>
-            <p style="font-size: 13px; color: #6b7280; text-align: center;">Jika butang di atas tidak berfungsi, anda boleh menyalin pautan berikut:<br/>${verificationLink}</p>
-            <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;" />
-            <p style="font-size: 12px; color: #9ca3af; text-align: center;">Ini adalah mesej automatik. Sila jangan balas e-mel ini.</p>
-          </div>
-        `
-      };
+          `
+        };
 
-      await transporter.sendMail(mailOptions);
+        await transporter.sendMail(mailOptions);
+        console.log(`[SMTP] E-mel pengesahan berjaya dihantar ke: ${email}`);
+      } catch (smtpErr: any) {
+        console.error(`[SMTP ERROR] Gagal menghantar e-mel ke ${email}:`, smtpErr.message);
+      }
     } else {
       console.log(`\n\n=== E-MEL PENGESAHAN (MOCK) ===\nKepada: ${email}\nPautan: ${verificationLink}\n================================\n\n`);
-      console.warn("Amaran: Kredensial SMTP tidak dijumpai dalam .env. Menggunakan MOCK email.");
+      console.warn("Amaran: SMTP_USER atau SMTP_PASS tidak dijumpai dalam environment variables.");
     }
 
     res.status(201).json({ success: true, message: 'Pendaftaran berjaya. Sila semak peti masuk e-mel anda untuk pengesahan pautan.' });
@@ -242,6 +248,7 @@ router.post('/auth/register', async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Ralat pelayan.' });
   }
 });
+
 
 router.post('/auth/login', async (req: Request, res: Response) => {
   try {
