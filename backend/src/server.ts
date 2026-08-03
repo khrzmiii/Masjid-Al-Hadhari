@@ -207,6 +207,7 @@ router.post('/auth/register', async (req: Request, res: Response) => {
         const transporter = nodemailer.createTransport({
           host: process.env.SMTP_HOST || 'smtp.gmail.com',
           port: parseInt(process.env.SMTP_PORT || '587'),
+          family: 4, // Force IPv4 - Render free tier tidak sokong IPv6
           secure: process.env.SMTP_SECURE === 'true',
           auth: {
             user: process.env.SMTP_USER,
