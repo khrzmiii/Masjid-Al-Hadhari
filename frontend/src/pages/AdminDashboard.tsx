@@ -853,7 +853,7 @@ const AdminDashboard: React.FC = () => {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div>
                       <h4 style={{ color: '#a7f3d0', margin: '0 0 0.5rem 0', fontWeight: '500', fontSize: '1.1rem' }}>Jumlah Pemasukan</h4>
-                      <h2 style={{ margin: 0, fontSize: '2.5rem', fontWeight: '700', textShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
+                      <h2 style={{ margin: 0, fontSize: '2.5rem', fontWeight: '700', textShadow: '0 2px 4px rgba(0,0,0,0.2)', color: 'white' }}>
                         <span style={{ fontSize: '1.5rem', opacity: 0.8, marginRight: '4px' }}>RM</span>
                         {filteredTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + Number(t.amount || 0), 0).toFixed(2)}
                       </h2>
@@ -868,7 +868,7 @@ const AdminDashboard: React.FC = () => {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div>
                       <h4 style={{ color: '#fecaca', margin: '0 0 0.5rem 0', fontWeight: '500', fontSize: '1.1rem' }}>Jumlah Perbelanjaan</h4>
-                      <h2 style={{ margin: 0, fontSize: '2.5rem', fontWeight: '700', textShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
+                      <h2 style={{ margin: 0, fontSize: '2.5rem', fontWeight: '700', textShadow: '0 2px 4px rgba(0,0,0,0.2)', color: 'white' }}>
                         <span style={{ fontSize: '1.5rem', opacity: 0.8, marginRight: '4px' }}>RM</span>
                         {filteredTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + Number(t.amount || 0), 0).toFixed(2)}
                       </h2>
@@ -883,7 +883,7 @@ const AdminDashboard: React.FC = () => {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div>
                       <h4 style={{ color: '#cbd5e1', margin: '0 0 0.5rem 0', fontWeight: '500', fontSize: '1.1rem' }}>Baki Semasa</h4>
-                      <h2 style={{ margin: 0, fontSize: '2.5rem', fontWeight: '700', textShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
+                      <h2 style={{ margin: 0, fontSize: '2.5rem', fontWeight: '700', textShadow: '0 2px 4px rgba(0,0,0,0.2)', color: 'white' }}>
                         <span style={{ fontSize: '1.5rem', opacity: 0.8, marginRight: '4px' }}>RM</span>
                         {(
                           filteredTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + Number(t.amount || 0), 0) -
@@ -996,7 +996,7 @@ const AdminDashboard: React.FC = () => {
                 </div>
                 
                 <div style={{ overflowX: 'auto', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.05)' }}>
-                  <table className="data-table" style={{ margin: 0, width: '100%', borderCollapse: 'collapse' }}>
+                  <table className="data-table" style={{ margin: 0, width: '100%', borderCollapse: 'collapse', minWidth: '950px' }}>
                     <thead style={{ backgroundColor: '#f8fafc' }}>
                       <tr>
                         <th style={{ padding: '1.25rem 1rem', textAlign: 'left', color: '#475569', fontWeight: '700', borderBottom: '2px solid #e2e8f0', fontSize: '0.95rem' }}>Tarikh</th>
@@ -1109,7 +1109,7 @@ const AdminDashboard: React.FC = () => {
                 <span style={{ backgroundColor: '#e2e8f0', color: '#475569', padding: '0.3rem 0.8rem', borderRadius: '20px', fontSize: '0.85rem', fontWeight: 'bold' }}>Jumlah Rekod: {inventoryList.length}</span>
               </div>
               <div style={{ overflowX: 'auto', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1)' }}>
-                <table className="data-table" style={{ margin: 0, width: '100%', borderCollapse: 'collapse' }}>
+                <table className="data-table" style={{ margin: 0, width: '100%', borderCollapse: 'collapse', minWidth: '950px' }}>
                   <thead style={{ backgroundColor: '#f8fafc' }}>
                     <tr>
                       <th style={{ padding: '1rem', textAlign: 'left', color: '#475569', fontWeight: '600', borderBottom: '2px solid #e2e8f0' }}>Nama Barang</th>
@@ -1174,7 +1174,7 @@ const AdminDashboard: React.FC = () => {
                   </span>
                 </div>
                 <div style={{ overflowX: 'auto', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                  <table className="data-table" style={{ margin: 0, width: '100%', borderCollapse: 'collapse' }}>
+                  <table className="data-table" style={{ margin: 0, width: '100%', borderCollapse: 'collapse', minWidth: '950px' }}>
                     <thead style={{ backgroundColor: '#f8fafc' }}>
                       <tr>
                         <th style={{ padding: '1rem', textAlign: 'left', color: '#475569', fontWeight: '600', borderBottom: '2px solid #e2e8f0' }}>Nama Peminjam</th>
