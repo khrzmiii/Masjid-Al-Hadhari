@@ -31,6 +31,9 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage: storage });
 
+const memoryStorage = multer.memoryStorage();
+const memoryUpload = multer({ storage: memoryStorage });
+
 // API versioning as per PRD
 const router = express.Router();
 
@@ -500,6 +503,44 @@ router.get('/admin/events/:id/participants', verifyToken, verifyRole(['setiausah
   }
 });
 
+// --- Receipts API ---
+router.post('/admin/finance/receipt', verifyToken, verifyRole(['bendahari', 'super_admin']), memoryUpload.single('receipt'), async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'Tiada fail dimuat naik.' });
+    }
+    const db = await getDb();
+    const id = randomUUID();
+    
+    await db.run(
+      'INSERT INTO receipts (id, file_name, mime_type, data) VALUES (?, ?, ?, ?)',
+      [id, req.file.originalname, req.file.mimetype, req.file.buffer]
+    );
+    
+    res.status(201).json({ url: `/api/v1/public/receipts/${id}` });
+  } catch (err) {
+    console.error('Error uploading receipt:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.get('/public/receipts/:id', async (req: Request, res: Response) => {
+  try {
+    const db = await getDb();
+    const row = await db.get('SELECT file_name, mime_type, data FROM receipts WHERE id = ?', [req.params.id]);
+    
+    if (!row) {
+      return res.status(404).send('Not found');
+    }
+    
+    res.setHeader('Content-Type', row.mime_type);
+    res.send(row.data);
+  } catch (err) {
+    console.error('Error getting receipt:', err);
+    res.status(500).send('Server Error');
+  }
+});
+
 // --- Finance API (Bendahari) ---
 router.get('/admin/finance/transactions', verifyToken, verifyRole(['bendahari', 'super_admin', 'pengerusi', 'timbalan_pengerusi']), async (req: AuthRequest, res: Response) => {
   try {
@@ -520,7 +561,7 @@ router.get('/admin/finance/transactions', verifyToken, verifyRole(['bendahari', 
 router.post('/admin/finance/transactions', verifyToken, verifyRole(['bendahari', 'super_admin']), async (req: AuthRequest, res: Response) => {
   try {
     const db = await getDb();
-    const { account_code, amount, type, description, payment_method, category } = req.body;
+    const { account_code, amount, type, description, payment_method, category, receipt_url } = req.body;
     
     if (!account_code || !amount || !type) {
       return res.status(400).json({ error: 'Sila lengkapkan maklumat transaksi.' });
@@ -528,8 +569,8 @@ router.post('/admin/finance/transactions', verifyToken, verifyRole(['bendahari',
 
     const id = randomUUID();
     await db.run(
-      'INSERT INTO transactions (id, account_code, amount, type, payment_method, category, description, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [id, account_code, amount, type, payment_method || 'lain-lain', category || 'lain-lain', description, 'completed']
+      'INSERT INTO transactions (id, account_code, amount, type, payment_method, category, description, status, receipt_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [id, account_code, amount, type, payment_method || 'lain-lain', category || 'lain-lain', description, 'completed', receipt_url || null]
     );
 
     res.status(201).json({ success: true });

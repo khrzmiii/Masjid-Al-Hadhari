@@ -30,6 +30,7 @@ interface TransactionData {
   category?: string;
   description: string;
   status?: string;
+  receipt_url?: string;
   created_at?: string;
 }
 
@@ -104,6 +105,7 @@ const AdminDashboard: React.FC = () => {
   const [newTransaction, setNewTransaction] = useState<TransactionData>({
     account_code: '', amount: 0, type: 'income', description: '', payment_method: 'Atas Talian', category: 'Lain-lain'
   });
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
 
   const [newItem, setNewItem] = useState<InventoryData>({
     item_name: '', quantity: 1, condition: 'baik', notes: ''
@@ -313,14 +315,39 @@ const AdminDashboard: React.FC = () => {
   const handleCreateTransaction = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      let finalReceiptUrl = newTransaction.receipt_url;
+
+      if (receiptFile) {
+        const formData = new FormData();
+        formData.append('receipt', receiptFile);
+        
+        const uploadRes = await fetch('/api/v1/admin/finance/receipt', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          },
+          body: formData
+        });
+        
+        if (uploadRes.ok) {
+          const uploadData = await uploadRes.json();
+          finalReceiptUrl = uploadData.url;
+        } else {
+          const errText = await uploadRes.text();
+          alert('Gagal memuat naik resit. Ralat: ' + errText);
+          return;
+        }
+      }
+
       const response = await fetch('/api/v1/admin/finance/transactions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify(newTransaction)
+        body: JSON.stringify({ ...newTransaction, receipt_url: finalReceiptUrl })
       });
       if (response.ok) {
         fetchFinanceData();
-        setNewTransaction({ account_code: '', amount: 0, type: 'income', description: '' });
+        setNewTransaction({ account_code: '', amount: 0, type: 'income', description: '', payment_method: 'Atas Talian', category: 'Lain-lain' });
+        setReceiptFile(null);
       }
     } catch (err) {
       alert('Ralat pelayan.');
@@ -896,6 +923,11 @@ const AdminDashboard: React.FC = () => {
                         <option value="Cek">Cek</option>
                       </select>
                     </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                      <label style={{ fontSize: '0.9rem', fontWeight: '600', color: '#475569' }}>Resit / Bukti Pembayaran (Pilihan)</label>
+                      <input type="file" accept="image/*,.pdf" onChange={e => setReceiptFile(e.target.files?.[0] || null)} className="form-input" style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', fontWeight: '500' }} />
+                      {receiptFile && <span style={{ fontSize: '0.8rem', color: '#059669', fontWeight: 'bold' }}>Fail sedia untuk dimuat naik: {receiptFile.name}</span>}
+                    </div>
                     <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
                       <button type="submit" className="btn btn-primary" style={{ padding: '0.85rem 2.5rem', fontWeight: 'bold', borderRadius: '8px', backgroundColor: 'var(--color-primary)', boxShadow: '0 4px 6px -1px rgba(5, 150, 105, 0.4)', transition: 'all 0.2s ease' }}>
                         Simpan Rekod
@@ -955,7 +987,16 @@ const AdminDashboard: React.FC = () => {
                         <tr key={t.id} style={{ backgroundColor: index % 2 === 0 ? 'white' : '#f8fafc', borderBottom: '1px solid #e2e8f0', transition: 'background-color 0.15s ease' }} className="table-row-hover">
                           <td style={{ padding: '1.25rem 1rem', color: '#64748b', fontWeight: '500' }}>{new Date(t.created_at!).toLocaleDateString('ms-MY')}</td>
                           <td style={{ padding: '1.25rem 1rem', fontWeight: '700', color: '#0f172a' }}>{t.account_name}</td>
-                          <td style={{ padding: '1.25rem 1rem', color: '#334155', fontWeight: '500' }}>{t.description}</td>
+                          <td style={{ padding: '1.25rem 1rem', color: '#334155', fontWeight: '500' }}>
+                            {t.description}
+                            {t.receipt_url && (
+                              <div style={{ marginTop: '0.5rem' }}>
+                                <a href={t.receipt_url} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', backgroundColor: '#e0f2fe', color: '#0284c7', padding: '0.25rem 0.75rem', borderRadius: '12px', fontSize: '0.8rem', fontWeight: '600', textDecoration: 'none' }}>
+                                  📎 Lihat Resit
+                                </a>
+                              </div>
+                            )}
+                          </td>
                           <td style={{ padding: '1.25rem 1rem', color: '#64748b', fontSize: '0.9rem', fontWeight: '500' }}>{t.category}</td>
                           <td style={{ padding: '1.25rem 1rem', color: '#64748b', fontSize: '0.9rem', fontWeight: '500' }}>{t.payment_method}</td>
                           <td style={{ padding: '1.25rem 1rem' }}>

@@ -54,8 +54,17 @@ const runMigrations = async () => {
         category TEXT DEFAULT 'lain-lain',
         description TEXT,
         status TEXT DEFAULT 'draft',
+        receipt_url TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY(account_code) REFERENCES accounts(code)
+      );
+
+      CREATE TABLE IF NOT EXISTS receipts (
+        id TEXT PRIMARY KEY,
+        file_name TEXT,
+        mime_type TEXT,
+        data BYTEA,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
 
