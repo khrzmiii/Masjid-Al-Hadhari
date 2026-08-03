@@ -104,6 +104,20 @@ const runMigrations = async () => {
       );
     `);
 
+    await db.exec(`
+      CREATE TABLE IF NOT EXISTS inventory_loans (
+        id TEXT PRIMARY KEY,
+        inventory_id TEXT NOT NULL,
+        borrower_name TEXT NOT NULL,
+        borrower_phone TEXT,
+        quantity INT NOT NULL,
+        status TEXT DEFAULT 'dipinjam',
+        borrow_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        return_date TIMESTAMP,
+        FOREIGN KEY (inventory_id) REFERENCES inventory(id) ON DELETE CASCADE
+      );
+    `);
+
     // 6. Form Submissions (Public e-forms)
     await db.exec(`
       CREATE TABLE IF NOT EXISTS form_submissions (
