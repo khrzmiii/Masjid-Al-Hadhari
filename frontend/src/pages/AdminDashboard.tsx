@@ -83,6 +83,7 @@ const AdminDashboard: React.FC = () => {
   const [eventsList, setEventsList] = useState<EventData[]>([]);
   
   const [transactionsList, setTransactionsList] = useState<TransactionData[]>([]);
+  const [financeTypeFilter, setFinanceTypeFilter] = useState<string>('Semua');
   const [financeCategoryFilter, setFinanceCategoryFilter] = useState<string>('Semua');
   const [financeMethodFilter, setFinanceMethodFilter] = useState<string>('Semua');
   const [accountsList, setAccountsList] = useState<AccountData[]>([]);
@@ -489,6 +490,7 @@ const AdminDashboard: React.FC = () => {
   };
 
   const filteredTransactions = transactionsList.filter(t => {
+    if (financeTypeFilter !== 'Semua' && t.type !== financeTypeFilter) return false;
     if (financeCategoryFilter !== 'Semua' && t.category !== financeCategoryFilter) return false;
     if (financeMethodFilter !== 'Semua' && t.payment_method !== financeMethodFilter) return false;
     return true;
@@ -907,6 +909,11 @@ const AdminDashboard: React.FC = () => {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
                   <h3 style={{ margin: 0, color: '#0f172a', fontSize: '1.5rem', fontWeight: '700' }}>Sejarah Transaksi Kewangan</h3>
                   <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                    <select value={financeTypeFilter} onChange={(e) => setFinanceTypeFilter(e.target.value)} style={{ padding: '0.6rem 1rem', borderRadius: '8px', border: '1px solid #e2e8f0', backgroundColor: '#f8fafc', color: '#334155', fontWeight: '500' }}>
+                      <option value="Semua">Semua Jenis</option>
+                      <option value="income">Kemasukkan</option>
+                      <option value="expense">Pengeluaran</option>
+                    </select>
                     <select value={financeCategoryFilter} onChange={(e) => setFinanceCategoryFilter(e.target.value)} style={{ padding: '0.6rem 1rem', borderRadius: '8px', border: '1px solid #e2e8f0', backgroundColor: '#f8fafc', color: '#334155', fontWeight: '500' }}>
                       <option value="Semua">Semua Kategori</option>
                       <option value="Tabung Jumaat">Tabung Jumaat</option>
