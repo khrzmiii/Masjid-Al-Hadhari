@@ -81,6 +81,7 @@ router.get('/public/prayer-times', async (req: Request, res: Response) => {
       data: {
         zone: jakimData.zone || zone,
         date: new Date().toISOString().split('T')[0],
+        hijri: todayData.hijri, // 1448-02-19
         times: {
           fajr: formatTime(todayData.fajr),
           syuruk: formatTime(todayData.syuruk),

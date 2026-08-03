@@ -41,16 +41,10 @@ const PrayerTimes: React.FC = () => {
     const today = new Date();
     const options: Intl.DateTimeFormatOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
     setDate(today.toLocaleDateString('ms-MY', options));
-    
-    try {
-      const hijriFormatter = new Intl.DateTimeFormat('ms-MY-u-ca-islamic-umalqura', { day: 'numeric', month: 'long', year: 'numeric' });
-      const formattedHijri = hijriFormatter.format(today);
-      // Ensure 'H' or 'AH' is appended if not present
-      setHijriDate(formattedHijri.includes('H') ? formattedHijri : `${formattedHijri} H`);
-    } catch (e) {
-      setHijriDate('');
-    }
-    
+
+    // Hijri date is now fetched from the API instead of using Intl.DateTimeFormat 
+    // because Safari has a bug with the 'islamic-umalqura' calendar.
+
     // Check network status
     if (!navigator.onLine) {
       setIsOffline(true);
@@ -71,6 +65,18 @@ const PrayerTimes: React.FC = () => {
             isha: json.data.times.isha || json.data.times.isyak || times.isha
           });
         }
+        if (json.data && json.data.hijri) {
+          const parts = json.data.hijri.split('-');
+          if (parts.length === 3) {
+            const year = parts[0];
+            const monthIdx = parseInt(parts[1], 10) - 1;
+            const day = parseInt(parts[2], 10);
+            const hijriMonths = ["Muharram", "Safar", "Rabiulawal", "Rabiulakhir", "Jamadilawal", "Jamadilakhir", "Rejab", "Syaaban", "Ramadan", "Syawal", "Zulkaedah", "Zulhijjah"];
+            if (monthIdx >= 0 && monthIdx < 12) {
+              setHijriDate(`${day} ${hijriMonths[monthIdx]} ${year} H`);
+            }
+          }
+        }
       })
       .catch(err => {
         console.error("Failed to fetch prayer times", err);
@@ -85,7 +91,7 @@ const PrayerTimes: React.FC = () => {
       const currentHours = now.getHours();
       const currentMinutes = now.getMinutes();
       const currentTime = currentHours + currentMinutes / 60;
-      
+
       const parseTime = (timeStr: string) => {
         if (!timeStr) return 0;
         const parts = timeStr.split(':');
@@ -112,10 +118,10 @@ const PrayerTimes: React.FC = () => {
           break;
         }
       }
-      
+
       setCurrentPrayer(current);
     };
-    
+
     determineCurrentPrayer();
     const interval = setInterval(determineCurrentPrayer, 60000);
     return () => clearInterval(interval);
@@ -139,9 +145,9 @@ const PrayerTimes: React.FC = () => {
         </div>
         <div className="prayer-location">
           <MapPin size={16} />
-          <span>Zon: Tandek, Kota Marudu (SBH05)</span>
+          <span>Zon: Kudat, Kota Marudu, Pitas, dan Pulau Banggi(SBH05)</span>
         </div>
-        
+
         <div className="live-clock-container">
           <div className="live-time">{liveTime}</div>
           <div className="dates-container">
@@ -150,7 +156,7 @@ const PrayerTimes: React.FC = () => {
             {hijriDate && <span className="hijri-date">{hijriDate}</span>}
           </div>
         </div>
-        
+
         {isOffline && (
           <div className="offline-badge">
             <AlertCircle size={14} />
@@ -158,7 +164,7 @@ const PrayerTimes: React.FC = () => {
           </div>
         )}
       </div>
-      
+
       <div className="prayer-grid">
         {prayers.map((prayer, idx) => (
           <div key={idx} className={`prayer-item ${currentPrayer === prayer.name ? 'active-prayer' : ''}`}>
