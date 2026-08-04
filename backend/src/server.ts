@@ -187,18 +187,37 @@ router.post('/auth/register', async (req: Request, res: Response) => {
     const baseUrl = process.env.APP_URL || 'https://masjid-al-hadhari.onrender.com';
     const verificationLink = `${baseUrl}/verify-email?token=${verificationToken}`;
     const emailHtml = `<div style="font-family:Arial,sans-serif;padding:20px;max-width:600px;margin:0 auto;border:1px solid #e5e7eb;border-radius:8px"><h2 style="color:#047857;text-align:center">Selamat Datang!</h2><p>Terima kasih kerana mendaftar akaun di Sistem Pengurusan Masjid Al-Hadhari.</p><div style="text-align:center;margin:30px 0"><a href="${verificationLink}" style="background-color:#059669;color:white;padding:12px 24px;text-decoration:none;border-radius:6px;font-weight:bold;display:inline-block">Sahkan E-mel Saya</a></div><p style="font-size:13px;color:#6b7280;text-align:center">Pautan: ${verificationLink}</p></div>`;
-    if (process.env.RESEND_API_KEY) {
+    if (process.env.BREVO_API_KEY) {
+      // Brevo (Sendinblue) - HTTPS API, tiada domain diperlukan, percuma 300 e-mel/hari
+      try {
+        console.log(`[BREVO] Cuba hantar e-mel ke: ${email}`);
+        const brevoRes = await fetch('https://api.brevo.com/v3/smtp/email', {
+          method: 'POST',
+          headers: {
+            'accept': 'application/json',
+            'api-key': process.env.BREVO_API_KEY,
+            'content-type': 'application/json'
+          },
+          body: JSON.stringify({
+            sender: { name: 'Sistem Masjid Al-Hadhari', email: process.env.SMTP_USER || 'masjid.alhadhari.web.app@gmail.com' },
+            to: [{ email: email, name: name }],
+            subject: 'Sahkan E-mel Akaun Anda',
+            htmlContent: emailHtml
+          })
+        });
+        const brevoData = await brevoRes.json() as any;
+        if (brevoRes.ok) {
+          console.log(`[BREVO] E-mel berjaya dihantar ke: ${email}, messageId: ${brevoData.messageId}`);
+        } else {
+          console.error(`[BREVO ERROR] ${JSON.stringify(brevoData)}`);
+        }
+      } catch (e: any) { console.error('[BREVO ERROR]', e.message); }
+    } else if (process.env.RESEND_API_KEY) {
       try {
         const resend = new Resend(process.env.RESEND_API_KEY);
         await resend.emails.send({ from: 'Sistem Masjid Al-Hadhari <onboarding@resend.dev>', to: [email], subject: 'Sahkan E-mel Akaun Anda', html: emailHtml });
-        console.log(`[EMAIL] Berjaya dihantar ke: ${email}`);
-      } catch (e: any) { console.error('[EMAIL ERROR]', e.message); }
-    } else if (process.env.SMTP_USER && process.env.SMTP_PASS) {
-      try {
-        const t = nodemailer.createTransport({ service: 'gmail', auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } });
-        await t.sendMail({ from: `"Masjid Al-Hadhari" <${process.env.SMTP_USER}>`, to: email, subject: 'Sahkan E-mel Akaun Anda', html: emailHtml });
-        console.log(`[SMTP] Berjaya dihantar ke: ${email}`);
-      } catch (e: any) { console.error('[SMTP ERROR]', e.message); }
+        console.log(`[RESEND] Berjaya dihantar ke: ${email}`);
+      } catch (e: any) { console.error('[RESEND ERROR]', e.message); }
     } else {
       console.log(`[MOCK] Pautan: ${verificationLink}`);
     }
