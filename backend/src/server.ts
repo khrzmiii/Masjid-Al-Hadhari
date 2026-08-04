@@ -262,6 +262,36 @@ router.post('/auth/verify', async (req: Request, res: Response) => {
   }
 });
 
+router.post('/auth/resend-verification', async (req: Request, res: Response) => {
+  try {
+    const db = await getDb();
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: 'E-mel diperlukan.' });
+    const user = await db.get('SELECT * FROM users WHERE email = ?', [email]);
+    if (!user) return res.status(404).json({ error: 'E-mel tidak dijumpai.' });
+    if (user.email_verified) return res.status(400).json({ error: 'E-mel ini sudah disahkan. Sila log masuk.' });
+    const verificationToken = randomBytes(32).toString('hex');
+    await db.run('UPDATE users SET verification_token = ? WHERE id = ?', [verificationToken, user.id]);
+    const baseUrl = process.env.APP_URL || 'https://masjid-al-hadhari.onrender.com';
+    const verificationLink = `${baseUrl}/verify-email?token=${verificationToken}`;
+    const emailHtml = `<div style="font-family:Arial,sans-serif;padding:20px;max-width:600px;margin:0 auto;border:1px solid #e5e7eb;border-radius:8px"><h2 style="color:#047857;text-align:center">Sahkan E-mel Anda</h2><p>Klik butang di bawah untuk mengesahkan akaun anda.</p><div style="text-align:center;margin:30px 0"><a href="${verificationLink}" style="background-color:#059669;color:white;padding:12px 24px;text-decoration:none;border-radius:6px;font-weight:bold;display:inline-block">Sahkan E-mel Saya</a></div><p style="font-size:13px;color:#6b7280;text-align:center">Pautan: ${verificationLink}</p></div>`;
+    if (process.env.BREVO_API_KEY) {
+      const brevoRes = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: { 'accept': 'application/json', 'api-key': process.env.BREVO_API_KEY, 'content-type': 'application/json' },
+        body: JSON.stringify({ sender: { name: 'Sistem Masjid Al-Hadhari', email: process.env.SMTP_USER || 'masjid.alhadhari.web.app@gmail.com' }, to: [{ email, name: user.name }], subject: 'Sahkan E-mel Akaun Anda', htmlContent: emailHtml })
+      });
+      const brevoData = await brevoRes.json() as any;
+      if (!brevoRes.ok) console.error('[BREVO RESEND ERROR]', JSON.stringify(brevoData));
+    }
+    res.status(200).json({ success: true, message: 'E-mel pengesahan baharu telah dihantar. Sila semak peti masuk anda.' });
+  } catch (err) {
+    console.error('Resend verification error:', err);
+    res.status(500).json({ error: 'Ralat pelayan.' });
+  }
+});
+
+
 router.post('/auth/google', async (req: Request, res: Response) => {
   try {
     const db = await getDb();

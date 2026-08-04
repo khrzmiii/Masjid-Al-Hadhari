@@ -10,6 +10,8 @@ const Login: React.FC = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showResend, setShowResend] = useState(false);
+  const [resendStatus, setResendStatus] = useState('');
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,6 +33,8 @@ const Login: React.FC = () => {
         navigate('/');
       } else {
         setError(data.error || 'Gagal log masuk. Sila semak kelayakan anda.');
+        if (response.status === 403) setShowResend(true);
+        else setShowResend(false);
       }
     } catch (err) {
       setError('Ralat pelayan. Sila cuba lagi sebentar nanti.');
@@ -68,6 +72,22 @@ const Login: React.FC = () => {
     setError('Log masuk Google gagal.');
   };
 
+  const handleResendVerification = async () => {
+    if (!email) { setResendStatus('Sila masukkan emel anda dahulu.'); return; }
+    setResendStatus('Menghantar...');
+    try {
+      const response = await fetch('/api/v1/auth/resend-verification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+      const data = await response.json();
+      setResendStatus(data.message || data.error || 'Ralat berlaku.');
+    } catch (err) {
+      setResendStatus('Ralat pelayan. Sila cuba lagi.');
+    }
+  };
+
   return (
     <div className="login-page">
       <div className="login-container">
@@ -83,6 +103,15 @@ const Login: React.FC = () => {
 
         <form onSubmit={handleLogin} className="login-form">
           {error && <div className="login-error">{error}</div>}
+          {showResend && (
+            <div style={{ textAlign: 'center', marginBottom: '0.5rem' }}>
+              <button type="button" onClick={handleResendVerification}
+                style={{ background: 'none', border: 'none', color: 'var(--color-primary)', cursor: 'pointer', fontSize: '0.875rem', textDecoration: 'underline' }}>
+                Hantar Semula E-mel Pengesahan
+              </button>
+              {resendStatus && <p style={{ fontSize: '0.8rem', color: '#6b7280', marginTop: '4px' }}>{resendStatus}</p>}
+            </div>
+          )}
           
           <div className="form-group">
             <label>Alamat Emel</label>
