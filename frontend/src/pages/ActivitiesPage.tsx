@@ -61,7 +61,7 @@ const ActivitiesPage: React.FC = () => {
 
   const handleWhatsAppShare = (event: EventData) => {
     const activityLink = `${window.location.origin}/aktiviti`;
-    const text = `Sertai aktiviti ini di Masjid Al-Hadhari!\n\n*${event.title}*\nTarikh: ${new Date(event.event_date).toLocaleDateString('ms-MY', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}\nTempat: ${event.venue || 'Masjid Al-Hadhari'}\n\n${event.description}\n\nDaftar sekarang di: ${activityLink}`;
+    const text = `Sertai aktiviti ini di Masjid Al-Hadhari!\n\n*${event.title}*\nTarikh: ${new Date(event.event_date).toLocaleDateString('ms-MY', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}\nTempat: ${event.venue || 'Masjid Al-Hadhari'}\n\n${event.description}\n\nDaftar sekarang di: ${activityLink}${event.image_url ? `\n\nLihat Poster: ${event.image_url}` : ''}`;
     const waUrl = `https://wa.me/?text=${encodeURIComponent(text)}`;
     window.open(waUrl, '_blank');
   };

@@ -132,7 +132,7 @@ router.get('/public/announcements', async (req: Request, res: Response) => {
     const rows = await db.all('SELECT * FROM announcements WHERE status = "published" ORDER BY created_at DESC');
     res.status(200).json({ data: rows });
   } catch (err) {
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
   }
 });
 
@@ -143,7 +143,7 @@ router.get('/public/events', async (req: Request, res: Response) => {
     const rows = await db.all('SELECT * FROM events WHERE status = "published" ORDER BY event_date ASC');
     res.status(200).json({ data: rows });
   } catch (err) {
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
   }
 });
 
@@ -161,7 +161,7 @@ router.post('/public/forms', async (req: Request, res: Response) => {
     res.status(201).json({ success: true, message: 'Borang berjaya dihantar.', id });
   } catch (err) {
     console.error('Form submission error:', err);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
   }
 });
 
@@ -348,7 +348,7 @@ router.get('/admin/users', verifyToken, verifyRole(['super_admin', 'pengerusi'])
     }
     res.status(200).json({ data: rows });
   } catch (err) {
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
   }
 });
 
@@ -377,7 +377,7 @@ router.put('/admin/users/:id/role', verifyToken, verifyRole(['pengerusi']), asyn
     await db.run('UPDATE users SET role = ? WHERE id = ?', [role, id]);
     res.status(200).json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
   }
 });
 
@@ -410,7 +410,7 @@ router.post('/admin/users', verifyToken, verifyRole(['pengerusi']), async (req: 
 
     res.status(201).json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
   }
 });
 
@@ -426,7 +426,7 @@ router.delete('/admin/users/:id', verifyToken, verifySuperAdmin, async (req: Aut
     await db.run('DELETE FROM users WHERE id = ?', [userId]);
     res.status(200).json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
   }
 });
 // --- Events API ---
@@ -442,12 +442,12 @@ router.post('/admin/events', verifyToken, verifyRole(['setiausaha', 'super_admin
     const id = randomUUID();
     await db.run(
       'INSERT INTO events (id, title, description, image_url, event_date, venue) VALUES (?, ?, ?, ?, ?, ?)',
-      [id, title, description, image_url, event_date, venue]
+      [id, title, description || null, image_url || null, event_date, venue || null]
     );
 
     res.status(201).json({ success: true, id });
   } catch (err) {
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
   }
 });
 
@@ -459,12 +459,12 @@ router.put('/admin/events/:id', verifyToken, verifyRole(['setiausaha', 'super_ad
     
     await db.run(
       'UPDATE events SET title = ?, description = ?, image_url = ?, event_date = ?, venue = ?, status = ? WHERE id = ?',
-      [title, description, image_url, event_date, venue, status || 'published', id]
+      [title, description || null, image_url || null, event_date, venue || null, status || 'published', id]
     );
 
     res.status(200).json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
   }
 });
 
@@ -476,7 +476,7 @@ router.delete('/admin/events/:id', verifyToken, verifyRole(['setiausaha', 'super
     await db.run('DELETE FROM events WHERE id = ?', [id]);
     res.status(200).json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
   }
 });
 
@@ -542,7 +542,7 @@ router.post('/admin/finance/receipt', verifyToken, verifyRole(['bendahari', 'sup
     res.status(201).json({ url: `/api/v1/public/receipts/${id}` });
   } catch (err) {
     console.error('Error uploading receipt:', err);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
   }
 });
 
@@ -577,7 +577,7 @@ router.get('/admin/finance/transactions', verifyToken, verifyRole(['bendahari', 
     const accounts = await db.all('SELECT * FROM accounts');
     res.status(200).json({ data: rows, accounts });
   } catch (err) {
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
   }
 });
 
@@ -598,7 +598,7 @@ router.post('/admin/finance/transactions', verifyToken, verifyRole(['bendahari',
 
     res.status(201).json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
   }
 });
 
@@ -609,7 +609,7 @@ router.delete('/admin/finance/transactions/:id', verifyToken, verifyRole(['benda
     await db.run('DELETE FROM transactions WHERE id = ?', [id]);
     res.status(200).json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
   }
 });
 
@@ -620,7 +620,7 @@ router.get('/admin/inventory', verifyToken, verifyRole(['ajk_peralatan', 'super_
     const rows = await db.all('SELECT * FROM inventory ORDER BY updated_at DESC');
     res.status(200).json({ data: rows });
   } catch (err) {
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
   }
 });
 
@@ -641,7 +641,7 @@ router.post('/admin/inventory', verifyToken, verifyRole(['ajk_peralatan', 'super
 
     res.status(201).json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
   }
 });
 
@@ -658,7 +658,7 @@ router.put('/admin/inventory/:id', verifyToken, verifyRole(['ajk_peralatan', 'su
 
     res.status(200).json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
   }
 });
 
@@ -669,7 +669,7 @@ router.delete('/admin/inventory/:id', verifyToken, verifyRole(['ajk_peralatan', 
     await db.run('DELETE FROM inventory WHERE id = ?', [id]);
     res.status(200).json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
   }
 });
 
@@ -685,7 +685,7 @@ router.get('/admin/inventory/loans', verifyToken, verifyRole(['ajk_peralatan', '
     `);
     res.status(200).json({ data: rows });
   } catch (err) {
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
   }
 });
 
@@ -701,12 +701,12 @@ router.post('/admin/inventory/loans', verifyToken, verifyRole(['ajk_peralatan', 
     const id = randomUUID();
     await db.run(
       'INSERT INTO inventory_loans (id, inventory_id, borrower_name, borrower_phone, quantity) VALUES (?, ?, ?, ?, ?)',
-      [id, inventory_id, borrower_name, borrower_phone, quantity]
+      [id, inventory_id, borrower_name, borrower_phone || null, Number(quantity)]
     );
 
     res.status(201).json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
   }
 });
 
@@ -722,7 +722,7 @@ router.put('/admin/inventory/loans/:id/return', verifyToken, verifyRole(['ajk_pe
 
     res.status(200).json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
   }
 });
 
