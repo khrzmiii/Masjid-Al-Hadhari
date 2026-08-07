@@ -33,21 +33,19 @@ const HistoryPage: React.FC = () => {
           {/* Fasa 1: Pembinaan Awal */}
           <div style={{ display: 'flex', flexDirection: window.innerWidth > 768 ? 'row' : 'column', alignItems: 'center', marginBottom: '4rem', position: 'relative', zIndex: 1 }}>
             <div style={{ flex: 1, padding: '1rem', textAlign: window.innerWidth > 768 ? 'right' : 'left' }}>
-              <span style={{ display: 'inline-block', backgroundColor: '#fef3c7', color: '#d97706', padding: '0.3rem 0.8rem', borderRadius: '20px', fontWeight: 'bold', fontSize: '0.9rem', marginBottom: '0.5rem' }}>Fasa Awal</span>
+              <span style={{ display: 'inline-block', backgroundColor: '#fef3c7', color: '#d97706', padding: '0.3rem 0.8rem', borderRadius: '20px', fontWeight: 'bold', fontSize: '0.9rem', marginBottom: '0.5rem' }}>1984 - Fasa Awal</span>
               <h2 style={{ color: '#1e293b', marginBottom: '1rem' }}>Titik Permulaan</h2>
               <p style={{ color: '#475569', lineHeight: '1.6', marginBottom: '1rem' }}>
-                Pada asalnya, pembinaan masjid ini bermula dengan sebuah struktur yang sederhana hasil keringat dan muafakat penduduk kampung. Dibina secara gotong-royong, masjid pertama ini menggunakan kayu dan bahan binaan asas, namun sarat dengan keikhlasan jemaah awal Kg. Masolog.
+                Masjid ini dibina buat pertama kalinya pada tahun 1984 dengan sebuah struktur yang sederhana hasil keringat dan muafakat penduduk kampung. Dibina secara gotong-royong, masjid pertama ini menggunakan kayu dan bahan binaan asas, namun sarat dengan keikhlasan jemaah awal Kg. Masolog.
               </p>
               <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', color: '#64748b', fontSize: '0.9rem' }}>
-                <Users size={16} /> <span>Gotong-royong masyarakat setempat</span>
+                <Users size={16} /> <span>Gotong-royong masyarakat setempat pada 1984</span>
               </div>
             </div>
             <div style={{ width: '40px', height: '40px', backgroundColor: '#0ea5e9', borderRadius: '50%', border: '4px solid white', margin: window.innerWidth > 768 ? '0 2rem' : '1rem 0', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', flexShrink: 0 }}></div>
             <div style={{ flex: 1, padding: '1rem', width: '100%' }}>
-              <div style={{ backgroundColor: '#e2e8f0', height: '250px', borderRadius: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', border: '2px dashed #94a3b8', color: '#64748b' }}>
-                <ImageIcon size={48} style={{ marginBottom: '1rem', opacity: 0.5 }} />
-                <span style={{ fontWeight: '500' }}>[Ruang Gambar Masjid Lama]</span>
-                <span style={{ fontSize: '0.8rem', marginTop: '0.5rem' }}>Gambar akan dimuat naik kelak</span>
+              <div style={{ borderRadius: '12px', overflow: 'hidden', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1)' }}>
+                <img src="/images/masjid-1.jpg" alt="Masjid Pertama (1984)" style={{ width: '100%', height: '250px', objectFit: 'cover', display: 'block' }} />
               </div>
             </div>
           </div>
@@ -66,10 +64,8 @@ const HistoryPage: React.FC = () => {
             </div>
             <div style={{ width: '40px', height: '40px', backgroundColor: '#4f46e5', borderRadius: '50%', border: '4px solid white', margin: window.innerWidth > 768 ? '0 2rem' : '1rem 0', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', flexShrink: 0 }}></div>
             <div style={{ flex: 1, padding: '1rem', width: '100%' }}>
-              <div style={{ backgroundColor: '#e2e8f0', height: '250px', borderRadius: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', border: '2px dashed #94a3b8', color: '#64748b' }}>
-                <ImageIcon size={48} style={{ marginBottom: '1rem', opacity: 0.5 }} />
-                <span style={{ fontWeight: '500' }}>[Ruang Gambar Bangunan Baharu]</span>
-                <span style={{ fontSize: '0.8rem', marginTop: '0.5rem' }}>Gambar akan dimuat naik kelak</span>
+              <div style={{ borderRadius: '12px', overflow: 'hidden', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1)' }}>
+                <img src="/images/masjid-2.jpg" alt="Bangunan Baharu Masjid" style={{ width: '100%', height: '250px', objectFit: 'cover', display: 'block' }} />
               </div>
             </div>
           </div>
@@ -88,10 +84,8 @@ const HistoryPage: React.FC = () => {
             </div>
             <div style={{ width: '40px', height: '40px', backgroundColor: '#10b981', borderRadius: '50%', border: '4px solid white', margin: window.innerWidth > 768 ? '0 2rem' : '1rem 0', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', flexShrink: 0 }}></div>
             <div style={{ flex: 1, padding: '1rem', width: '100%' }}>
-              <div style={{ backgroundColor: '#e2e8f0', height: '250px', borderRadius: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', border: '2px dashed #94a3b8', color: '#64748b' }}>
-                <ImageIcon size={48} style={{ marginBottom: '1rem', opacity: 0.5 }} />
-                <span style={{ fontWeight: '500' }}>[Ruang Gambar Terkini Masjid]</span>
-                <span style={{ fontSize: '0.8rem', marginTop: '0.5rem' }}>Gambar akan dimuat naik kelak</span>
+              <div style={{ borderRadius: '12px', overflow: 'hidden', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1)' }}>
+                <img src="/images/masjid-3.jpg" alt="Masjid Al-Hadhari Kini" style={{ width: '100%', height: '250px', objectFit: 'cover', display: 'block' }} />
               </div>
             </div>
           </div>
