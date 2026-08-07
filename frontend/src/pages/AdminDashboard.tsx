@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, Users, Calendar as CalendarIcon, Settings, Home, Menu, X, Wallet, Package, TrendingUp, TrendingDown, DollarSign, Trash2 } from 'lucide-react';
+import { LogOut, Users, Calendar as CalendarIcon, Settings, Home, Menu, X, Wallet, Package, TrendingUp, TrendingDown, DollarSign, Trash2, FileText } from 'lucide-react';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import './AdminDashboard.css';
 
 interface UserData {
@@ -549,6 +551,84 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
+  const handleExportPDF = (moduleName: 'kewangan' | 'aktiviti' | 'logistik') => {
+    const doc = new jsPDF();
+    
+    // Add title
+    const title = `Laporan ${moduleName.charAt(0).toUpperCase() + moduleName.slice(1)}`;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const textWidth = doc.getTextWidth(title);
+    const x = (pageWidth - textWidth) / 2;
+    
+    doc.text(title, x, 20);
+    
+    // Underline
+    doc.setLineWidth(0.5);
+    doc.line(x, 21, x + textWidth, 21);
+
+    const tableOptions = {
+      startY: 30,
+      styles: {
+        font: 'helvetica',
+        fontSize: 12,
+        cellPadding: 4,
+      },
+      headStyles: {
+        fillColor: [255, 255, 0],
+        textColor: [0, 0, 0],
+        fontStyle: 'bold',
+        halign: 'center' as const,
+      },
+      bodyStyles: {
+        halign: 'left' as const,
+      },
+    };
+
+    let head: string[][] = [];
+    let body: string[][] = [];
+
+    if (moduleName === 'kewangan') {
+      head = [['Tarikh', 'Akaun', 'Penerangan', 'Kategori', 'Kaedah', 'Jenis', 'Jumlah (RM)']];
+      body = filteredTransactions.map(t => [
+        new Date(t.created_at).toLocaleDateString('ms-MY'),
+        t.account_name || t.account_code,
+        t.description || '-',
+        t.category || '-',
+        t.payment_method || '-',
+        t.type === 'income' ? 'Duit Masuk' : 'Duit Keluar',
+        Number(t.amount).toFixed(2)
+      ]);
+    } else if (moduleName === 'aktiviti') {
+      head = [['Tarikh & Masa', 'Tajuk Aktiviti', 'Lokasi']];
+      body = events.map(e => [
+        new Date(e.event_date).toLocaleString('ms-MY'),
+        e.title,
+        e.venue || '-'
+      ]);
+    } else if (moduleName === 'logistik') {
+      head = [['Nama Barang', 'Kuantiti', 'Status Pinjaman', 'Keadaan', 'Catatan', 'Dikemaskini']];
+      body = inventory.map(i => [
+        i.item_name,
+        i.quantity.toString(),
+        i.is_borrowed ? 'Dipinjam' : 'Tersedia',
+        i.condition,
+        i.notes || '-',
+        new Date(i.updated_at).toLocaleDateString('ms-MY')
+      ]);
+    }
+
+    autoTable(doc, {
+      ...tableOptions,
+      head,
+      body
+    });
+
+    doc.save(`Laporan_${moduleName}.pdf`);
+  };
+
   const handleLogout = () => {
     localStorage.removeItem('adminToken');
     localStorage.removeItem('adminUser');
@@ -827,7 +907,13 @@ const AdminDashboard: React.FC = () => {
               <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '2rem', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
                   <h3 style={{ margin: 0, color: '#0f172a' }}>Senarai Aktiviti / Program</h3>
-                  <span style={{ backgroundColor: '#e2e8f0', color: '#475569', padding: '0.3rem 0.8rem', borderRadius: '20px', fontSize: '0.85rem', fontWeight: 'bold' }}>Jumlah: {eventsList.length}</span>
+                  <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                    <span style={{ backgroundColor: '#e2e8f0', color: '#475569', padding: '0.3rem 0.8rem', borderRadius: '20px', fontSize: '0.85rem', fontWeight: 'bold' }}>Jumlah: {eventsList.length}</span>
+                    <button onClick={() => handleExportPDF('aktiviti')} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', backgroundColor: '#eab308', color: 'white', padding: '0.4rem 0.8rem', borderRadius: '8px', border: 'none', fontWeight: '600', cursor: 'pointer', transition: 'background-color 0.2s' }}>
+                      <FileText size={16} />
+                      Eksport PDF
+                    </button>
+                  </div>
                 </div>
                 <div style={{ overflowX: 'auto', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
                   <table className="data-table" style={{ margin: 0, width: '100%', borderCollapse: 'collapse' }}>
@@ -988,7 +1074,11 @@ const AdminDashboard: React.FC = () => {
               <div style={{ backgroundColor: 'white', borderRadius: '16px', padding: '2.5rem', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01)', border: '1px solid #f1f5f9' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
                   <h3 style={{ margin: 0, color: '#0f172a', fontSize: '1.5rem', fontWeight: '700' }}>Sejarah Transaksi Kewangan</h3>
-                  <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <button onClick={() => handleExportPDF('kewangan')} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', backgroundColor: '#eab308', color: 'white', padding: '0.6rem 1rem', borderRadius: '8px', border: 'none', fontWeight: '600', cursor: 'pointer', transition: 'background-color 0.2s' }}>
+                      <FileText size={18} />
+                      Eksport PDF
+                    </button>
                     <select value={financeTypeFilter} onChange={(e) => setFinanceTypeFilter(e.target.value)} style={{ padding: '0.6rem 1rem', borderRadius: '8px', border: '1px solid #e2e8f0', backgroundColor: '#f8fafc', color: '#334155', fontWeight: '500' }}>
                       <option value="Semua">Semua Jenis</option>
                       <option value="income">Kemasukkan</option>
@@ -1125,7 +1215,13 @@ const AdminDashboard: React.FC = () => {
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
                 <h3 style={{ margin: 0, color: '#0f172a' }}>Senarai Inventori Masjid</h3>
-                <span style={{ backgroundColor: '#e2e8f0', color: '#475569', padding: '0.3rem 0.8rem', borderRadius: '20px', fontSize: '0.85rem', fontWeight: 'bold' }}>Jumlah Rekod: {inventoryList.length}</span>
+                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                  <span style={{ backgroundColor: '#e2e8f0', color: '#475569', padding: '0.3rem 0.8rem', borderRadius: '20px', fontSize: '0.85rem', fontWeight: 'bold' }}>Jumlah Rekod: {inventoryList.length}</span>
+                  <button onClick={() => handleExportPDF('logistik')} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', backgroundColor: '#eab308', color: 'white', padding: '0.4rem 0.8rem', borderRadius: '8px', border: 'none', fontWeight: '600', cursor: 'pointer', transition: 'background-color 0.2s' }}>
+                    <FileText size={16} />
+                    Eksport PDF
+                  </button>
+                </div>
               </div>
               <div style={{ overflowX: 'auto', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1)' }}>
                 <table className="data-table" style={{ margin: 0, width: '100%', borderCollapse: 'collapse', minWidth: '950px' }}>
