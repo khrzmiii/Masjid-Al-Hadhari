@@ -555,9 +555,9 @@ const AdminDashboard: React.FC = () => {
     const doc = new jsPDF();
     
     // Add title
-    const title = `Laporan ${moduleName.charAt(0).toUpperCase() + moduleName.slice(1)}`;
+    const title = `LAPORAN ${moduleName.toUpperCase()}`;
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(12);
+    doc.setFontSize(10);
     
     const pageWidth = doc.internal.pageSize.getWidth();
     const textWidth = doc.getTextWidth(title);
@@ -571,15 +571,20 @@ const AdminDashboard: React.FC = () => {
 
     const tableOptions = {
       startY: 30,
+      theme: 'grid' as const,
       styles: {
         font: 'helvetica',
-        fontSize: 12,
+        fontSize: 10,
         cellPadding: 4,
+        fillColor: [255, 255, 255] as [number, number, number],
+        textColor: [0, 0, 0] as [number, number, number],
+        lineColor: [0, 0, 0] as [number, number, number],
+        lineWidth: 0.1,
       },
       headStyles: {
-        fillColor: [255, 255, 0],
-        textColor: [0, 0, 0],
-        fontStyle: 'bold',
+        fillColor: [255, 255, 0] as [number, number, number],
+        textColor: [0, 0, 0] as [number, number, number],
+        fontStyle: 'bold' as const,
         halign: 'center' as const,
       },
       bodyStyles: {
@@ -625,6 +630,22 @@ const AdminDashboard: React.FC = () => {
       head,
       body
     });
+    
+    const finalY = (doc as any).lastAutoTable.finalY || 50;
+    
+    // Time stamp
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    const timeStamp = `Dicetak pada: ${new Date().toLocaleString('ms-MY')}`;
+    doc.text(timeStamp, 14, finalY + 15);
+    
+    // Signature
+    const pengerusi = usersList.find(u => u.role === 'pengerusi');
+    const pengerusiName = pengerusi ? pengerusi.name.toUpperCase() : '..............................................................';
+    
+    doc.text('..............................................................', 14, finalY + 40);
+    doc.text(`[${pengerusiName}]`, 14, finalY + 45);
+    doc.text('PENGERUSI MASJID AL-HADHARI, KG. MASOLOG', 14, finalY + 50);
 
     doc.save(`Laporan_${moduleName}.pdf`);
   };
