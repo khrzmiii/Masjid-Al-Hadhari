@@ -148,6 +148,30 @@ router.get('/public/events', async (req: Request, res: Response) => {
   }
 });
 
+router.get('/public/events/:id/image', async (req: Request, res: Response) => {
+  try {
+    const db = await getDb();
+    const event = await db.get('SELECT image_url FROM events WHERE id = ?', [req.params.id]);
+    if (!event || !event.image_url) {
+      return res.status(404).send('Image not found');
+    }
+    
+    const matches = event.image_url.match(/^data:image\/([A-Za-z-+\/]+);base64,(.+)$/);
+    if (!matches || matches.length !== 3) {
+      return res.status(400).send('Invalid image format');
+    }
+    
+    const type = matches[1];
+    const data = Buffer.from(matches[2], 'base64');
+    
+    res.set('Content-Type', `image/${type}`);
+    res.set('Cache-Control', 'public, max-age=31536000');
+    res.send(data);
+  } catch (err) {
+    res.status(500).send('Internal Server Error');
+  }
+});
+
 // Submit Public Forms
 router.post('/public/forms', async (req: Request, res: Response) => {
   try {
@@ -735,6 +759,41 @@ app.get('/health', (req, res) => {
 
 // Serve frontend SPA
 app.use(express.static(path.join(__dirname, '../../frontend/dist')));
+
+const fs = require('fs');
+app.get('/aktiviti', async (req, res, next) => {
+  const eventId = req.query.id;
+  if (!eventId) {
+    return next();
+  }
+  
+  try {
+    const { getDb } = require('./db');
+    const db = await getDb();
+    const event = await db.get('SELECT * FROM events WHERE id = ?', [eventId]);
+    if (!event) return next();
+    
+    const indexPath = path.join(__dirname, '../../frontend/dist/index.html');
+    let html = fs.readFileSync(indexPath, 'utf8');
+    
+    const imageUrl = `${req.protocol}://${req.get('host')}/api/v1/public/events/${eventId}/image`;
+    const eventUrl = `${req.protocol}://${req.get('host')}/aktiviti?id=${eventId}`;
+    
+    const ogTags = `
+      <meta property="og:title" content="${event.title}" />
+      <meta property="og:description" content="${event.description || 'Sertai aktiviti ini di Masjid Al-Hadhari!'}" />
+      <meta property="og:image" content="${imageUrl}" />
+      <meta property="og:url" content="${eventUrl}" />
+      <meta property="og:type" content="website" />
+    `;
+    
+    html = html.replace('</head>', `${ogTags}</head>`);
+    res.send(html);
+  } catch (err) {
+    next();
+  }
+});
+
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../../frontend/dist/index.html'));
 });

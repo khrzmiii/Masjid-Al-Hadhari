@@ -264,6 +264,7 @@ const AdminDashboard: React.FC = () => {
     setNewEvent(ev);
     setEditingEventId(ev.id || null);
     setSelectedImageFile(null);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const fetchParticipants = async (ev: EventData) => {

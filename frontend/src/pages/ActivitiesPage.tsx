@@ -47,6 +47,13 @@ const ActivitiesPage: React.FC = () => {
         
         setUpcomingEvents(upcoming);
         setPastEvents(past);
+        
+        const params = new URLSearchParams(window.location.search);
+        const eventId = params.get('id');
+        if (eventId) {
+          const found = data.data.find((ev: EventData) => ev.id === eventId);
+          if (found) setSelectedEvent(found);
+        }
       }
     } catch (err) {
       console.error('Error fetching activities:', err);
@@ -60,8 +67,8 @@ const ActivitiesPage: React.FC = () => {
   }, []);
 
   const handleWhatsAppShare = (event: EventData) => {
-    const activityLink = `${window.location.origin}/aktiviti`;
-    const text = `Sertai aktiviti ini di Masjid Al-Hadhari!\n\n*${event.title}*\nTarikh: ${new Date(event.event_date).toLocaleDateString('ms-MY', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}\nTempat: ${event.venue || 'Masjid Al-Hadhari'}\n\n${event.description}\n\nDaftar sekarang di: ${activityLink}${event.image_url ? `\n\nLihat Poster: ${event.image_url}` : ''}`;
+    const activityLink = `${window.location.origin}/aktiviti?id=${event.id}`;
+    const text = `Sertai aktiviti ini di Masjid Al-Hadhari!\n\n*${event.title}*\nTarikh: ${new Date(event.event_date).toLocaleDateString('ms-MY', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}\nTempat: ${event.venue || 'Masjid Al-Hadhari'}\n\n${event.description}\n\nDaftar sekarang di: ${activityLink}`;
     const waUrl = `https://wa.me/?text=${encodeURIComponent(text)}`;
     window.open(waUrl, '_blank');
   };
