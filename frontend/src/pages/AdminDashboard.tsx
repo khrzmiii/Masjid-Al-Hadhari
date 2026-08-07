@@ -938,7 +938,7 @@ const AdminDashboard: React.FC = () => {
                       <label style={{ fontSize: '0.9rem', fontWeight: '600', color: '#475569' }}>Akaun Terlibat</label>
                       <select required value={newTransaction.account_code} onChange={e => setNewTransaction({...newTransaction, account_code: e.target.value})} className="form-input" style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', fontWeight: '500' }}>
                         <option value="" disabled>-- Pilih Akaun --</option>
-                        {accountsList.filter(a => a.type === newTransaction.type).map(acc => (
+                        {accountsList.filter(a => a.type === 'both' || a.type === newTransaction.type).map(acc => (
                           <option key={acc.code} value={acc.code}>{acc.name}</option>
                         ))}
                       </select>
