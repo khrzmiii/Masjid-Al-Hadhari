@@ -130,7 +130,7 @@ import { getDb } from './db';
 router.get('/public/announcements', async (req: Request, res: Response) => {
   try {
     const db = await getDb();
-    const rows = await db.all('SELECT * FROM announcements WHERE status = "published" ORDER BY created_at DESC');
+    const rows = await db.all("SELECT * FROM announcements WHERE status = 'published' ORDER BY created_at DESC");
     res.status(200).json({ data: rows });
   } catch (err) {
     res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
@@ -141,7 +141,7 @@ router.get('/public/announcements', async (req: Request, res: Response) => {
 router.get('/public/events', async (req: Request, res: Response) => {
   try {
     const db = await getDb();
-    const rows = await db.all('SELECT * FROM events WHERE status = "published" ORDER BY event_date ASC');
+    const rows = await db.all("SELECT * FROM events WHERE status = 'published' ORDER BY event_date ASC");
     res.status(200).json({ data: rows });
   } catch (err) {
     res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
