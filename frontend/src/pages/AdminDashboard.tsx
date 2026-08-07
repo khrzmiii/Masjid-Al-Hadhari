@@ -235,13 +235,18 @@ const AdminDashboard: React.FC = () => {
         : '/api/v1/admin/events';
       const method = editingEventId ? 'PUT' : 'POST';
 
+      let isoEventDate = newEvent.event_date;
+      try {
+        isoEventDate = new Date(newEvent.event_date).toISOString();
+      } catch (e) {}
+
       const response = await fetch(url, {
         method: method,
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ ...newEvent, image_url: finalImageUrl })
+        body: JSON.stringify({ ...newEvent, image_url: finalImageUrl, event_date: isoEventDate })
       });
       if (response.ok) {
         fetchAdminEvents();
@@ -261,7 +266,14 @@ const AdminDashboard: React.FC = () => {
   };
 
   const handleEditEventClick = (ev: EventData) => {
-    setNewEvent(ev);
+    let localDateTime = ev.event_date;
+    try {
+      const dateObj = new Date(ev.event_date);
+      const pad = (n: number) => n.toString().padStart(2, '0');
+      localDateTime = `${dateObj.getFullYear()}-${pad(dateObj.getMonth() + 1)}-${pad(dateObj.getDate())}T${pad(dateObj.getHours())}:${pad(dateObj.getMinutes())}`;
+    } catch (e) {}
+    
+    setNewEvent({ ...ev, event_date: localDateTime });
     setEditingEventId(ev.id || null);
     setSelectedImageFile(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
