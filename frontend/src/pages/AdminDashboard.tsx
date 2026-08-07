@@ -250,8 +250,10 @@ const AdminDashboard: React.FC = () => {
         setEditingEventId(null);
         alert(editingEventId ? 'Aktiviti berjaya disunting.' : 'Aktiviti berjaya ditambah.');
       } else {
-        const errJson = await response.json().catch(() => ({}));
-        alert(`Gagal menyimpan aktiviti: ${errJson.error || 'Ralat tidak diketahui'}`);
+        const errText = await response.text();
+        let errMsg = errText;
+        try { const errJson = JSON.parse(errText); errMsg = errJson.error || errText; } catch(e) {}
+        alert(`Gagal menyimpan aktiviti (Status ${response.status}): ${errMsg}`);
       }
     } catch (err) {
       alert('Ralat pelayan.');
@@ -411,8 +413,10 @@ const AdminDashboard: React.FC = () => {
         setIsBorrowModalOpen(false);
         alert('Rekod pinjaman berjaya disimpan.');
       } else {
-        const errJson = await response.json().catch(() => ({}));
-        alert(`Gagal menyimpan rekod pinjaman: ${errJson.error || 'Ralat tidak diketahui'}`);
+        const errText = await response.text();
+        let errMsg = errText;
+        try { const errJson = JSON.parse(errText); errMsg = errJson.error || errText; } catch(e) {}
+        alert(`Gagal menyimpan rekod pinjaman (Status ${response.status}): ${errMsg}`);
       }
     } catch (err) {
       alert('Ralat pelayan.');
