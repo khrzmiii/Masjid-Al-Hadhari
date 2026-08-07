@@ -266,8 +266,12 @@
   
   /* Finance Cards Responsive */
   .finance-cards-wrapper {
-    flex-direction: column !important;
+    grid-template-columns: 1fr !important;
     gap: 1rem !important;
+  }
+  
+  .responsive-grid {
+    grid-template-columns: 1fr !important;
   }
   
   /* Tables Responsive */
