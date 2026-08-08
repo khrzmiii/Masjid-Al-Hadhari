@@ -647,17 +647,19 @@ const AdminDashboard: React.FC = () => {
     
     // Right Signature (Pengerusi)
     const pengerusi = usersList.find(u => u.role === 'pengerusi');
-    const pengerusiName = pengerusi ? pengerusi.name.toUpperCase() : '........................................';
+    const pengerusiName = pengerusi ? pengerusi.name.toUpperCase() : '';
     const pengerusiRole = 'PENGERUSI MASJID AL-HADHARI, KG. MASOLOG';
-    const pengerusiDotsLength = Math.max(pengerusiName.length, pengerusiRole.length);
-    const pengerusiDots = '.'.repeat(Math.max(40, pengerusiDotsLength + 10));
     
-    const rightMargin = 14;
-    const pengerusiDotsWidth = doc.getTextWidth(pengerusiDots);
-    const rightX = pageWidth - rightMargin - pengerusiDotsWidth;
+    const rightMaxWidth = Math.max(doc.getTextWidth(pengerusiName), doc.getTextWidth(pengerusiRole));
+    let pengerusiDots = '........................................';
+    while (doc.getTextWidth(pengerusiDots) < rightMaxWidth) {
+      pengerusiDots += '.';
+    }
+    
+    const rightX = pageWidth - 14 - doc.getTextWidth(pengerusiDots);
     
     doc.text(pengerusiDots, rightX, finalY + 20);
-    doc.text(pengerusiName, rightX, finalY + 25);
+    if (pengerusiName) doc.text(pengerusiName, rightX, finalY + 25);
     doc.text(pengerusiRole, rightX, finalY + 30);
 
     // Left Signature (PIC)
@@ -675,12 +677,16 @@ const AdminDashboard: React.FC = () => {
       leftRole = 'AJK LOGISTIK MASJID AL-HADHARI';
     }
 
-    const leftName = leftUser ? leftUser.name.toUpperCase() : '........................................';
-    const leftDotsLength = Math.max(leftName.length, leftRole.length);
-    const leftDots = '.'.repeat(Math.max(40, leftDotsLength + 10));
+    const leftName = leftUser ? leftUser.name.toUpperCase() : '';
+    
+    const leftMaxWidth = Math.max(doc.getTextWidth(leftName), doc.getTextWidth(leftRole));
+    let leftDots = '........................................';
+    while (doc.getTextWidth(leftDots) < leftMaxWidth) {
+      leftDots += '.';
+    }
     
     doc.text(leftDots, 14, finalY + 20);
-    doc.text(leftName, 14, finalY + 25);
+    if (leftName) doc.text(leftName, 14, finalY + 25);
     doc.text(leftRole, 14, finalY + 30);
 
     // Time stamp (Absolute Footer on all pages)
