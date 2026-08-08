@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://masjid-al-hadhari.onrender.com/sitemap.xml
