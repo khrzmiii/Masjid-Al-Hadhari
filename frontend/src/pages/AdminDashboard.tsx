@@ -662,14 +662,12 @@ const AdminDashboard: React.FC = () => {
     
     let finalY = (doc as any).lastAutoTable.finalY || 50;
     
-    // Check if we have enough space for signatures (approx 40 units needed)
-    if (finalY + 40 > pageHeight - 20) {
-      doc.addPage();
-      finalY = 20;
-    }
-    
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
+    
+    const pageCount = (doc as any).internal.getNumberOfPages();
+    doc.setPage(pageCount);
+    const signatureY = pageHeight - 40;
     
     // Right Signature (Pengerusi)
     const pengerusi = usersList.find(u => u.role === 'pengerusi');
@@ -684,9 +682,9 @@ const AdminDashboard: React.FC = () => {
     
     const rightX = pageWidth - 14 - doc.getTextWidth(pengerusiDots);
     
-    doc.text(pengerusiDots, rightX, finalY + 20);
-    if (pengerusiName) doc.text(pengerusiName, rightX, finalY + 25);
-    doc.text(pengerusiRole, rightX, finalY + 30);
+    doc.text(pengerusiDots, rightX, signatureY);
+    if (pengerusiName) doc.text(pengerusiName, rightX, signatureY + 5);
+    doc.text(pengerusiRole, rightX, signatureY + 10);
 
     // Left Signature (PIC)
     let leftUser;
@@ -711,15 +709,14 @@ const AdminDashboard: React.FC = () => {
       leftDots += '.';
     }
     
-    doc.text(leftDots, 14, finalY + 20);
-    if (leftName) doc.text(leftName, 14, finalY + 25);
-    doc.text(leftRole, 14, finalY + 30);
+    doc.text(leftDots, 14, signatureY);
+    if (leftName) doc.text(leftName, 14, signatureY + 5);
+    doc.text(leftRole, 14, signatureY + 10);
 
     // Time stamp (Absolute Footer on all pages)
     const timeStamp = `Dicetak pada: ${new Date().toLocaleString('ms-MY')}`;
     doc.setFont("helvetica", "italic");
     doc.setFontSize(8);
-    const pageCount = (doc as any).internal.getNumberOfPages();
     for (let i = 1; i <= pageCount; i++) {
       doc.setPage(i);
       doc.text(timeStamp, 14, pageHeight - 10);
@@ -1150,9 +1147,8 @@ const AdminDashboard: React.FC = () => {
                       <label style={{ fontSize: '0.9rem', fontWeight: '600', color: '#475569' }}>Akaun Terlibat</label>
                       <select required value={newTransaction.account_code} onChange={e => setNewTransaction({...newTransaction, account_code: e.target.value})} className="form-input" style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', fontWeight: '500' }}>
                         <option value="" disabled>-- Pilih Akaun --</option>
-                        {accountsList.filter(a => a.type === 'both' || a.type === newTransaction.type).map(acc => (
-                          <option key={acc.code} value={acc.code}>{acc.name}</option>
-                        ))}
+                        <option value="BANK">Duit Dalam Bank</option>
+                        <option value="TUNAI">Pegangan (Tunai)</option>
                       </select>
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
