@@ -362,7 +362,7 @@ router.put('/auth/profile', verifyToken, async (req: AuthRequest, res: Response)
 });
 
 // --- Admin Endpoints ---
-router.get('/admin/users', verifyToken, verifyRole(['super_admin', 'pengerusi', 'timbalan_pengerusi', 'setiausaha']), async (req: AuthRequest, res: Response) => {
+router.get('/admin/users', verifyToken, verifyRole(['super_admin', 'pengerusi', 'timbalan_pengerusi', 'setiausaha', 'penolong_setiausaha', 'bendahari', 'penolong_bendahari', 'ajk_peralatan']), async (req: AuthRequest, res: Response) => {
   try {
     const db = await getDb();
     let rows;

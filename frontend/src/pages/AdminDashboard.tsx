@@ -560,7 +560,7 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
-  const handleExportPDF = (moduleName: 'kewangan' | 'aktiviti' | 'logistik') => {
+  const handleExportPDF = async (moduleName: 'kewangan' | 'aktiviti' | 'logistik') => {
     // Landscape orientation
     const doc = new jsPDF('landscape');
     
@@ -669,8 +669,24 @@ const AdminDashboard: React.FC = () => {
     doc.setPage(pageCount);
     const signatureY = pageHeight - 40;
     
+    let currentUsersList = usersList;
+    if (currentUsersList.length === 0) {
+      try {
+        const response = await fetch('/api/v1/admin/users', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (response.ok) {
+          const json = await response.json();
+          currentUsersList = json.data || [];
+          setUsersList(currentUsersList);
+        }
+      } catch (err) {
+        console.error('Failed to fetch users for PDF signature', err);
+      }
+    }
+    
     // Right Signature (Pengerusi)
-    const pengerusi = usersList.find(u => u.role === 'pengerusi');
+    const pengerusi = currentUsersList.find(u => u.role === 'pengerusi');
     const pengerusiName = pengerusi ? pengerusi.name.toUpperCase() : '';
     const pengerusiRole = 'PENGERUSI MASJID AL-HADHARI, KG. MASOLOG';
     
@@ -691,13 +707,13 @@ const AdminDashboard: React.FC = () => {
     let leftRole = '';
     
     if (moduleName === 'kewangan') {
-      leftUser = usersList.find(u => u.role === 'bendahari');
+      leftUser = currentUsersList.find(u => u.role === 'bendahari');
       leftRole = 'BENDAHARI MASJID AL-HADHARI';
     } else if (moduleName === 'aktiviti') {
-      leftUser = usersList.find(u => u.role === 'setiausaha');
+      leftUser = currentUsersList.find(u => u.role === 'setiausaha');
       leftRole = 'SETIAUSAHA MASJID AL-HADHARI';
     } else if (moduleName === 'logistik') {
-      leftUser = usersList.find(u => u.role === 'ajk_peralatan');
+      leftUser = currentUsersList.find(u => u.role === 'ajk_peralatan');
       leftRole = 'AJK LOGISTIK MASJID AL-HADHARI';
     }
 
