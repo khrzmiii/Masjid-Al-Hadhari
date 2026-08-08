@@ -552,7 +552,8 @@ const AdminDashboard: React.FC = () => {
   };
 
   const handleExportPDF = (moduleName: 'kewangan' | 'aktiviti' | 'logistik') => {
-    const doc = new jsPDF();
+    // Landscape orientation
+    const doc = new jsPDF('landscape');
     
     // Add title
     const title = `LAPORAN ${moduleName.toUpperCase()}`;
@@ -560,6 +561,7 @@ const AdminDashboard: React.FC = () => {
     doc.setFontSize(10);
     
     const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
     const textWidth = doc.getTextWidth(title);
     const x = (pageWidth - textWidth) / 2;
     
@@ -590,6 +592,7 @@ const AdminDashboard: React.FC = () => {
       bodyStyles: {
         halign: 'left' as const,
       },
+      margin: { bottom: 30 } // Leave space for footer
     };
 
     let head: string[][] = [];
@@ -631,21 +634,64 @@ const AdminDashboard: React.FC = () => {
       body
     });
     
-    const finalY = (doc as any).lastAutoTable.finalY || 50;
+    let finalY = (doc as any).lastAutoTable.finalY || 50;
     
-    // Time stamp
+    // Check if we have enough space for signatures (approx 40 units needed)
+    if (finalY + 40 > pageHeight - 20) {
+      doc.addPage();
+      finalY = 20;
+    }
+    
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
-    const timeStamp = `Dicetak pada: ${new Date().toLocaleString('ms-MY')}`;
-    doc.text(timeStamp, 14, finalY + 15);
     
-    // Signature
+    // Right Signature (Pengerusi)
     const pengerusi = usersList.find(u => u.role === 'pengerusi');
-    const pengerusiName = pengerusi ? pengerusi.name.toUpperCase() : '..............................................................';
+    const pengerusiName = pengerusi ? pengerusi.name.toUpperCase() : '........................................';
+    const pengerusiRole = 'PENGERUSI MASJID AL-HADHARI, KG. MASOLOG';
+    const pengerusiDotsLength = Math.max(pengerusiName.length, pengerusiRole.length);
+    const pengerusiDots = '.'.repeat(Math.max(40, pengerusiDotsLength + 10));
     
-    doc.text('..............................................................', 14, finalY + 40);
-    doc.text(`[${pengerusiName}]`, 14, finalY + 45);
-    doc.text('PENGERUSI MASJID AL-HADHARI, KG. MASOLOG', 14, finalY + 50);
+    const rightMargin = 14;
+    const pengerusiDotsWidth = doc.getTextWidth(pengerusiDots);
+    const rightX = pageWidth - rightMargin - pengerusiDotsWidth;
+    
+    doc.text(pengerusiDots, rightX, finalY + 20);
+    doc.text(pengerusiName, rightX, finalY + 25);
+    doc.text(pengerusiRole, rightX, finalY + 30);
+
+    // Left Signature (PIC)
+    let leftUser;
+    let leftRole = '';
+    
+    if (moduleName === 'kewangan') {
+      leftUser = usersList.find(u => u.role === 'bendahari');
+      leftRole = 'BENDAHARI MASJID AL-HADHARI';
+    } else if (moduleName === 'aktiviti') {
+      leftUser = usersList.find(u => u.role === 'setiausaha');
+      leftRole = 'SETIAUSAHA MASJID AL-HADHARI';
+    } else if (moduleName === 'logistik') {
+      leftUser = usersList.find(u => u.role === 'ajk_peralatan');
+      leftRole = 'AJK LOGISTIK MASJID AL-HADHARI';
+    }
+
+    const leftName = leftUser ? leftUser.name.toUpperCase() : '........................................';
+    const leftDotsLength = Math.max(leftName.length, leftRole.length);
+    const leftDots = '.'.repeat(Math.max(40, leftDotsLength + 10));
+    
+    doc.text(leftDots, 14, finalY + 20);
+    doc.text(leftName, 14, finalY + 25);
+    doc.text(leftRole, 14, finalY + 30);
+
+    // Time stamp (Absolute Footer on all pages)
+    const timeStamp = `Dicetak pada: ${new Date().toLocaleString('ms-MY')}`;
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(8);
+    const pageCount = (doc as any).internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.text(timeStamp, 14, pageHeight - 10);
+    }
 
     doc.save(`Laporan_${moduleName}.pdf`);
   };
