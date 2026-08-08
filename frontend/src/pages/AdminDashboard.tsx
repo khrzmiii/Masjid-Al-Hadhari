@@ -89,6 +89,9 @@ const AdminDashboard: React.FC = () => {
   const [financeTypeFilter, setFinanceTypeFilter] = useState<string>('Semua');
   const [financeCategoryFilter, setFinanceCategoryFilter] = useState<string>('Semua');
   const [financeMethodFilter, setFinanceMethodFilter] = useState<string>('Semua');
+  const [exportMonthKewangan, setExportMonthKewangan] = useState<string>('');
+  const [exportMonthAktiviti, setExportMonthAktiviti] = useState<string>('');
+  const [exportMonthLogistik, setExportMonthLogistik] = useState<string>('');
   const [accountsList, setAccountsList] = useState<AccountData[]>([]);
   const [inventoryList, setInventoryList] = useState<InventoryData[]>([]);
   
@@ -600,7 +603,11 @@ const AdminDashboard: React.FC = () => {
 
     if (moduleName === 'kewangan') {
       head = [['Tarikh', 'Akaun', 'Penerangan', 'Kategori', 'Kaedah', 'Jenis', 'Jumlah (RM)']];
-      body = filteredTransactions.map(t => [
+      const filteredForPDF = exportMonthKewangan 
+        ? filteredTransactions.filter(t => t.created_at.startsWith(exportMonthKewangan))
+        : filteredTransactions;
+        
+      body = filteredForPDF.map(t => [
         new Date(t.created_at).toLocaleDateString('ms-MY'),
         t.account_name || t.account_code,
         t.description || '-',
@@ -611,14 +618,22 @@ const AdminDashboard: React.FC = () => {
       ]);
     } else if (moduleName === 'aktiviti') {
       head = [['Tarikh & Masa', 'Tajuk Aktiviti', 'Lokasi']];
-      body = events.map(e => [
+      const filteredForPDF = exportMonthAktiviti 
+        ? eventsList.filter(e => e.event_date.startsWith(exportMonthAktiviti))
+        : eventsList;
+        
+      body = filteredForPDF.map(e => [
         new Date(e.event_date).toLocaleString('ms-MY'),
         e.title,
         e.venue || '-'
       ]);
     } else if (moduleName === 'logistik') {
       head = [['Nama Barang', 'Kuantiti', 'Status Pinjaman', 'Keadaan', 'Catatan', 'Dikemaskini']];
-      body = inventory.map(i => [
+      const filteredForPDF = exportMonthLogistik
+        ? inventoryList.filter(i => i.updated_at.startsWith(exportMonthLogistik))
+        : inventoryList;
+        
+      body = filteredForPDF.map(i => [
         i.item_name,
         i.quantity.toString(),
         i.is_borrowed ? 'Dipinjam' : 'Tersedia',
@@ -626,6 +641,11 @@ const AdminDashboard: React.FC = () => {
         i.notes || '-',
         new Date(i.updated_at).toLocaleDateString('ms-MY')
       ]);
+    }
+
+    if (body.length === 0) {
+      alert(`Tiada rekod ditemui untuk dieksport.`);
+      return;
     }
 
     autoTable(doc, {
@@ -982,10 +1002,13 @@ const AdminDashboard: React.FC = () => {
                   <h3 style={{ margin: 0, color: '#0f172a' }}>Senarai Aktiviti / Program</h3>
                   <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
                     <span style={{ backgroundColor: '#e2e8f0', color: '#475569', padding: '0.3rem 0.8rem', borderRadius: '20px', fontSize: '0.85rem', fontWeight: 'bold' }}>Jumlah: {eventsList.length}</span>
-                    <button onClick={() => handleExportPDF('aktiviti')} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', backgroundColor: '#eab308', color: 'white', padding: '0.4rem 0.8rem', borderRadius: '8px', border: 'none', fontWeight: '600', cursor: 'pointer', transition: 'background-color 0.2s' }}>
-                      <FileText size={16} />
-                      Eksport PDF
-                    </button>
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                      <input type="month" title="Tapis bulan untuk eksport" value={exportMonthAktiviti} onChange={e => setExportMonthAktiviti(e.target.value)} style={{ padding: '0.35rem', borderRadius: '8px', border: '1px solid #e2e8f0', color: '#475569', fontWeight: '500' }} />
+                      <button onClick={() => handleExportPDF('aktiviti')} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', backgroundColor: '#eab308', color: 'white', padding: '0.4rem 0.8rem', borderRadius: '8px', border: 'none', fontWeight: '600', cursor: 'pointer', transition: 'background-color 0.2s' }}>
+                        <FileText size={16} />
+                        Eksport PDF
+                      </button>
+                    </div>
                   </div>
                 </div>
                 <div style={{ overflowX: 'auto', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
@@ -1148,10 +1171,13 @@ const AdminDashboard: React.FC = () => {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
                   <h3 style={{ margin: 0, color: '#0f172a', fontSize: '1.5rem', fontWeight: '700' }}>Sejarah Transaksi Kewangan</h3>
                   <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                    <button onClick={() => handleExportPDF('kewangan')} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', backgroundColor: '#eab308', color: 'white', padding: '0.6rem 1rem', borderRadius: '8px', border: 'none', fontWeight: '600', cursor: 'pointer', transition: 'background-color 0.2s' }}>
-                      <FileText size={18} />
-                      Eksport PDF
-                    </button>
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                      <input type="month" title="Tapis bulan untuk eksport" value={exportMonthKewangan} onChange={e => setExportMonthKewangan(e.target.value)} style={{ padding: '0.5rem', borderRadius: '8px', border: '1px solid #e2e8f0', color: '#475569', fontWeight: '500' }} />
+                      <button onClick={() => handleExportPDF('kewangan')} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', backgroundColor: '#eab308', color: 'white', padding: '0.6rem 1rem', borderRadius: '8px', border: 'none', fontWeight: '600', cursor: 'pointer', transition: 'background-color 0.2s' }}>
+                        <FileText size={18} />
+                        Eksport PDF
+                      </button>
+                    </div>
                     <select value={financeTypeFilter} onChange={(e) => setFinanceTypeFilter(e.target.value)} style={{ padding: '0.6rem 1rem', borderRadius: '8px', border: '1px solid #e2e8f0', backgroundColor: '#f8fafc', color: '#334155', fontWeight: '500' }}>
                       <option value="Semua">Semua Jenis</option>
                       <option value="income">Kemasukkan</option>
@@ -1290,10 +1316,13 @@ const AdminDashboard: React.FC = () => {
                 <h3 style={{ margin: 0, color: '#0f172a' }}>Senarai Inventori Masjid</h3>
                 <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
                   <span style={{ backgroundColor: '#e2e8f0', color: '#475569', padding: '0.3rem 0.8rem', borderRadius: '20px', fontSize: '0.85rem', fontWeight: 'bold' }}>Jumlah Rekod: {inventoryList.length}</span>
-                  <button onClick={() => handleExportPDF('logistik')} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', backgroundColor: '#eab308', color: 'white', padding: '0.4rem 0.8rem', borderRadius: '8px', border: 'none', fontWeight: '600', cursor: 'pointer', transition: 'background-color 0.2s' }}>
-                    <FileText size={16} />
-                    Eksport PDF
-                  </button>
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    <input type="month" title="Tapis bulan untuk eksport" value={exportMonthLogistik} onChange={e => setExportMonthLogistik(e.target.value)} style={{ padding: '0.35rem', borderRadius: '8px', border: '1px solid #e2e8f0', color: '#475569', fontWeight: '500' }} />
+                    <button onClick={() => handleExportPDF('logistik')} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', backgroundColor: '#eab308', color: 'white', padding: '0.4rem 0.8rem', borderRadius: '8px', border: 'none', fontWeight: '600', cursor: 'pointer', transition: 'background-color 0.2s' }}>
+                      <FileText size={16} />
+                      Eksport PDF
+                    </button>
+                  </div>
                 </div>
               </div>
               <div style={{ overflowX: 'auto', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1)' }}>
