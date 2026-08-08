@@ -111,6 +111,7 @@ const AdminDashboard: React.FC = () => {
     account_code: '', amount: 0, type: 'income', description: '', payment_method: 'Atas Talian', category: 'Lain-lain'
   });
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const [receiptModalUrl, setReceiptModalUrl] = useState<string | null>(null);
 
   const [newItem, setNewItem] = useState<InventoryData>({
     item_name: '', quantity: 1, condition: 'baik', notes: ''
@@ -126,6 +127,11 @@ const AdminDashboard: React.FC = () => {
   const token = localStorage.getItem('adminToken');
   const userStr = localStorage.getItem('adminUser');
   const user = userStr ? JSON.parse(userStr) : null;
+
+  const canEditUsers = user?.role === 'pengerusi' || user?.role === 'super_admin';
+  const canEditFinance = user?.role === 'bendahari' || user?.role === 'penolong_bendahari' || user?.role === 'pengerusi' || user?.role === 'super_admin';
+  const canEditEvents = user?.role === 'setiausaha' || user?.role === 'penolong_setiausaha' || user?.role === 'pengerusi' || user?.role === 'super_admin';
+  const canEditInventory = user?.role === 'ajk_peralatan' || user?.role === 'pengerusi' || user?.role === 'super_admin';
 
   useEffect(() => {
     if (!token) {
@@ -604,11 +610,11 @@ const AdminDashboard: React.FC = () => {
     if (moduleName === 'kewangan') {
       head = [['Tarikh', 'Akaun', 'Penerangan', 'Kategori', 'Kaedah', 'Jenis', 'Jumlah (RM)']];
       const filteredForPDF = exportMonthKewangan 
-        ? filteredTransactions.filter(t => t.created_at.startsWith(exportMonthKewangan))
+        ? filteredTransactions.filter(t => t.created_at?.startsWith(exportMonthKewangan))
         : filteredTransactions;
         
       body = filteredForPDF.map(t => [
-        new Date(t.created_at).toLocaleDateString('ms-MY'),
+        new Date(t.created_at!).toLocaleDateString('ms-MY'),
         t.account_name || t.account_code,
         t.description || '-',
         t.category || '-',
@@ -630,16 +636,16 @@ const AdminDashboard: React.FC = () => {
     } else if (moduleName === 'logistik') {
       head = [['Nama Barang', 'Kuantiti', 'Status Pinjaman', 'Keadaan', 'Catatan', 'Dikemaskini']];
       const filteredForPDF = exportMonthLogistik
-        ? inventoryList.filter(i => i.updated_at.startsWith(exportMonthLogistik))
+        ? inventoryList.filter(i => i.updated_at?.startsWith(exportMonthLogistik))
         : inventoryList;
         
       body = filteredForPDF.map(i => [
         i.item_name,
         i.quantity.toString(),
-        i.is_borrowed ? 'Dipinjam' : 'Tersedia',
+        '', // Placeholder for logic status
         i.condition,
         i.notes || '-',
-        new Date(i.updated_at).toLocaleDateString('ms-MY')
+        new Date(i.updated_at!).toLocaleDateString('ms-MY')
       ]);
     }
 
@@ -739,6 +745,45 @@ const AdminDashboard: React.FC = () => {
   const hasTimbalan = usersList.some(u => u.role === 'timbalan_pengerusi');
   const hasSetiausaha = usersList.some(u => u.role === 'setiausaha');
   const hasBendahari = usersList.some(u => u.role === 'bendahari');
+
+  const renderRoleOptions = (currentRole?: string) => (
+    <>
+      <option value="pending">Belum Disahkan (Pending)</option>
+      <option value="public">Awam</option>
+      <option value="penaung">Penaung</option>
+      <option value="penasihat">Penasihat</option>
+      <option value="pengerusi" disabled={hasPengerusi && currentRole !== 'pengerusi'}>Pengerusi {(hasPengerusi && currentRole !== 'pengerusi') ? '(Telah Diisi)' : ''}</option>
+      <option value="timbalan_pengerusi" disabled={hasTimbalan && currentRole !== 'timbalan_pengerusi'}>Timbalan Pengerusi {(hasTimbalan && currentRole !== 'timbalan_pengerusi') ? '(Telah Diisi)' : ''}</option>
+      <option value="setiausaha" disabled={hasSetiausaha && currentRole !== 'setiausaha'}>Setiausaha {(hasSetiausaha && currentRole !== 'setiausaha') ? '(Telah Diisi)' : ''}</option>
+      <option value="penolong_setiausaha">Penolong Setiausaha</option>
+      <option value="bendahari" disabled={hasBendahari && currentRole !== 'bendahari'}>Bendahari {(hasBendahari && currentRole !== 'bendahari') ? '(Telah Diisi)' : ''}</option>
+      <option value="penolong_bendahari">Penolong Bendahari</option>
+      <option value="ajk_dakwah">AJK Dakwah & Pendidikan</option>
+      <option value="ajk_kebersihan">AJK Kebersihan & Keceriaan</option>
+      <option value="ajk_peralatan">AJK Aset & Peralatan</option>
+      <option value="ajk_perkuburan">AJK Taman Perkuburan</option>
+      <option value="ajk_kebajikan">AJK Kebajikan & Kemasyarakatan</option>
+      <option value="ajk_keselamatan">AJK Keselamatan</option>
+      <option value="ajk_pembangunan">AJK Pembangunan & Baik Pulih</option>
+      <option value="ajk_kesukarelawan">AJK Kesukarelawan</option>
+      <option value="ajk_belia_ekonomi">AJK Belia & Ekonomi</option>
+      <option value="ajk_kesenian">AJK Kesenian Islam</option>
+      <option value="ajk_penerbitan">AJK Penerbitan & Publisiti</option>
+      <option value="ajk_perayaan">AJK Perayaan Islam</option>
+      <option value="ajk_muslimah">AJK Hal Ehwal Muslimah</option>
+      <option value="ajk_tugas_khas">AJK Tugas-tugas Khas</option>
+      <option value="ajk_hal_ehwal_belia">AJK Hal Ehwal Belia</option>
+      <option value="ajk_unit_khas">AJK Unit Khas (Kemahiran Hidup)</option>
+      <option value="pegawai_dokumentasi">Pegawai Dokumentasi & ICT</option>
+      <option value="pegawai_juruaudit_dalaman">Juruaudit Dalaman</option>
+      <option value="pegawai_juruaudit_luar">Juruaudit Luar</option>
+      <option value="pegawai_sukan">Pegawai Sukan & Riadah</option>
+      <option value="imam_rawatib">Imam Rawatib</option>
+      <option value="imam_kariah">Imam Kariah</option>
+      <option value="ajk_kecil">AJK Kecil / Wakil Kampung</option>
+      {user?.role === 'super_admin' && <option value="super_admin">Super Admin</option>}
+    </>
+  );
 
   return (
     <div className="admin-layout">
@@ -866,15 +911,7 @@ const AdminDashboard: React.FC = () => {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                       <label style={{ fontSize: '0.9rem', fontWeight: '600', color: '#475569' }}>Peranan</label>
                       <select value={newUserForm.role} onChange={e => setNewUserForm({...newUserForm, role: e.target.value})} className="form-input" style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: 'white' }}>
-                        <option value="pending">Belum Disahkan (Pending)</option>
-                        <option value="admin">AJK (Umum)</option>
-                        <option value="setiausaha" disabled={hasSetiausaha}>Setiausaha {hasSetiausaha && '(Telah Diisi)'}</option>
-                        <option value="bendahari" disabled={hasBendahari}>Bendahari {hasBendahari && '(Telah Diisi)'}</option>
-                        <option value="ajk_peralatan">AJK Peralatan / Logistik</option>
-                        <option value="pengerusi" disabled={hasPengerusi}>Pengerusi {hasPengerusi && '(Telah Diisi)'}</option>
-                        <option value="timbalan_pengerusi" disabled={hasTimbalan}>Timbalan Pengerusi {hasTimbalan && '(Telah Diisi)'}</option>
-                        <option value="public">Awam</option>
-                        {user?.role === 'super_admin' && <option value="super_admin">Super Admin</option>}
+                        {renderRoleOptions()}
                       </select>
                     </div>
                     <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem' }}>
@@ -928,14 +965,7 @@ const AdminDashboard: React.FC = () => {
                                   onChange={(e) => handleRoleUpdate(u.id, e.target.value)}
                                   style={{ padding: '0.6rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: 'white', color: '#0f172a', fontWeight: '500', outline: 'none' }}
                                 >
-                                  <option value="pending">Belum Disahkan (Pending)</option>
-                                  <option value="admin">AJK (Umum)</option>
-                                  <option value="setiausaha" disabled={hasSetiausaha && u.role !== 'setiausaha'}>Setiausaha {(hasSetiausaha && u.role !== 'setiausaha') && '(Telah Diisi)'}</option>
-                                  <option value="bendahari" disabled={hasBendahari && u.role !== 'bendahari'}>Bendahari {(hasBendahari && u.role !== 'bendahari') && '(Telah Diisi)'}</option>
-                                  <option value="ajk_peralatan">AJK Peralatan / Logistik</option>
-                                  <option value="pengerusi" disabled={hasPengerusi && u.role !== 'pengerusi'}>Pengerusi {(hasPengerusi && u.role !== 'pengerusi') && '(Telah Diisi)'}</option>
-                                  <option value="timbalan_pengerusi" disabled={hasTimbalan && u.role !== 'timbalan_pengerusi'}>Timbalan Pengerusi {(hasTimbalan && u.role !== 'timbalan_pengerusi') && '(Telah Diisi)'}</option>
-                                  <option value="public">Awam</option>
+                                  {renderRoleOptions(u.role)}
                                 </select>
                               )}
                               {u.name !== user?.name && (
@@ -960,7 +990,7 @@ const AdminDashboard: React.FC = () => {
 
           {activeTab === 'events' && (user?.role === 'super_admin' || user?.role === 'setiausaha' || user?.role === 'pengerusi' || user?.role === 'timbalan_pengerusi') && (
             <div className="card-container">
-              {(user?.role !== 'pengerusi' && user?.role !== 'timbalan_pengerusi') && (
+              {(canEditEvents) && (
                 <>
                   <div style={{ backgroundColor: 'white', padding: '2rem', borderRadius: '12px', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', marginBottom: '3rem' }}>
                     <h3 style={{ marginTop: 0, marginBottom: '1.5rem', color: '#0f172a' }}>Tambah Aktiviti / Program Baru</h3>
@@ -1030,7 +1060,7 @@ const AdminDashboard: React.FC = () => {
                           <td style={{ padding: '1rem', textAlign: 'center' }}>
                             <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
                               <button onClick={() => fetchParticipants(ev)} style={{ backgroundColor: '#0ea5e9', color: 'white', border: 'none', padding: '0.4rem 0.8rem', borderRadius: '6px', cursor: 'pointer', fontWeight: '500', transition: 'background-color 0.2s' }}>Peserta</button>
-                              {user?.role !== 'pengerusi' && user?.role !== 'timbalan_pengerusi' && (
+                              {canEditEvents && (
                                 <>
                                   <button onClick={() => handleEditEventClick(ev)} style={{ backgroundColor: '#eab308', color: 'white', border: 'none', padding: '0.4rem 0.8rem', borderRadius: '6px', cursor: 'pointer', fontWeight: '500', transition: 'background-color 0.2s' }}>Sunting</button>
                                   <button onClick={() => handleDeleteEvent(ev.id!)} style={{ backgroundColor: '#ef4444', color: 'white', border: 'none', padding: '0.4rem 0.8rem', borderRadius: '6px', cursor: 'pointer', fontWeight: '500', transition: 'background-color 0.2s' }}>Padam</button>
@@ -1099,7 +1129,7 @@ const AdminDashboard: React.FC = () => {
                 </div>
               </div>
 
-              {(user?.role === 'super_admin' || user?.role === 'bendahari') && (
+              {(canEditFinance) && (
                 <div style={{ backgroundColor: 'white', padding: '2.5rem', borderRadius: '16px', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01)', border: '1px solid #f1f5f9' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2rem' }}>
                     <div style={{ background: '#ecfdf5', padding: '0.75rem', borderRadius: '12px' }}>
@@ -1214,7 +1244,7 @@ const AdminDashboard: React.FC = () => {
                         <th style={{ padding: '1.25rem 1rem', textAlign: 'left', color: '#475569', fontWeight: '700', borderBottom: '2px solid #e2e8f0', fontSize: '0.95rem' }}>Kaedah</th>
                         <th style={{ padding: '1.25rem 1rem', textAlign: 'left', color: '#475569', fontWeight: '700', borderBottom: '2px solid #e2e8f0', fontSize: '0.95rem' }}>Jenis</th>
                         <th style={{ padding: '1.25rem 1rem', textAlign: 'right', color: '#475569', fontWeight: '700', borderBottom: '2px solid #e2e8f0', fontSize: '0.95rem' }}>Jumlah (RM)</th>
-                        {(user?.role === 'super_admin' || user?.role === 'bendahari') && (
+                        {(canEditFinance) && (
                           <th style={{ padding: '1.25rem 1rem', textAlign: 'center', color: '#475569', fontWeight: '700', borderBottom: '2px solid #e2e8f0', fontSize: '0.95rem' }}>Tindakan</th>
                         )}
                       </tr>
@@ -1244,7 +1274,7 @@ const AdminDashboard: React.FC = () => {
                           <td style={{ padding: '1.25rem 1rem', textAlign: 'right', fontWeight: '800', fontSize: '1.15rem', color: t.type === 'income' ? '#16a34a' : '#ef4444' }}>
                             {t.type === 'income' ? '+' : '-'}{Number(t.amount || 0).toFixed(2)}
                           </td>
-                          {(user?.role === 'super_admin' || user?.role === 'bendahari') && (
+                          {(canEditFinance) && (
                             <td style={{ padding: '1.25rem 1rem', textAlign: 'center' }}>
                               <button onClick={() => handleDeleteTransaction(t.id!)} style={{ backgroundColor: '#fee2e2', color: '#dc2626', border: '1px solid #fecaca', padding: '0.5rem 1rem', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', transition: 'all 0.2s', fontSize: '0.9rem' }} onMouseOver={e => e.currentTarget.style.backgroundColor = '#fecaca'} onMouseOut={e => e.currentTarget.style.backgroundColor = '#fee2e2'}>
                                 Padam
@@ -1255,7 +1285,7 @@ const AdminDashboard: React.FC = () => {
                       ))}
                       {filteredTransactions.length === 0 && (
                         <tr>
-                          <td colSpan={(user?.role === 'super_admin' || user?.role === 'bendahari') ? 8 : 7} style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8', fontSize: '1.1rem', fontWeight: '500' }}>
+                          <td colSpan={(canEditFinance) ? 8 : 7} style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8', fontSize: '1.1rem', fontWeight: '500' }}>
                             Tiada rekod transaksi dijumpai untuk kriteria carian ini.
                           </td>
                         </tr>
@@ -1269,7 +1299,7 @@ const AdminDashboard: React.FC = () => {
 
           {activeTab === 'logistics' && (user?.role === 'super_admin' || user?.role === 'ajk_peralatan' || user?.role === 'pengerusi' || user?.role === 'timbalan_pengerusi') && (
             <div className="card-container">
-              {(user?.role !== 'pengerusi' && user?.role !== 'timbalan_pengerusi') && (
+              {(canEditInventory) && (
                 <div style={{ backgroundColor: '#f8fafc', padding: '2rem', borderRadius: '12px', border: '1px solid #e2e8f0', marginBottom: '3rem', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.05)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
                     <h3 style={{ margin: 0, color: '#0f172a' }}>{editingInventoryId ? 'Kemaskini Peralatan' : 'Tambah Peralatan Baru'}</h3>
@@ -1335,6 +1365,7 @@ const AdminDashboard: React.FC = () => {
                       <th style={{ padding: '1rem', textAlign: 'left', color: '#475569', fontWeight: '600', borderBottom: '2px solid #e2e8f0' }}>Keadaan</th>
                       <th style={{ padding: '1rem', textAlign: 'left', color: '#475569', fontWeight: '600', borderBottom: '2px solid #e2e8f0' }}>Catatan</th>
                       <th style={{ padding: '1rem', textAlign: 'left', color: '#475569', fontWeight: '600', borderBottom: '2px solid #e2e8f0' }}>Dikemaskini</th>
+                      <th style={{ padding: '1rem', textAlign: 'left', color: '#475569', fontWeight: '600', borderBottom: '2px solid #e2e8f0' }}>Dikemaskini Oleh</th>
                       <th style={{ padding: '1rem', textAlign: 'center', color: '#475569', fontWeight: '600', borderBottom: '2px solid #e2e8f0' }}>Tindakan</th>
                     </tr>
                   </thead>
@@ -1364,8 +1395,9 @@ const AdminDashboard: React.FC = () => {
                         </td>
                         <td style={{ padding: '1rem', color: '#64748b', fontStyle: item.notes ? 'normal' : 'italic' }}>{item.notes || 'Tiada catatan'}</td>
                         <td style={{ padding: '1rem', color: '#64748b' }}>{new Date(item.updated_at!).toLocaleDateString('ms-MY')}</td>
+                        <td style={{ padding: '1rem', color: '#64748b', fontSize: '0.9rem' }}>{item.last_modified_by || '-'}</td>
                         <td style={{ padding: '1rem', textAlign: 'center' }}>
-                          {(user?.role === 'ajk_peralatan' || user?.role === 'super_admin') && (
+                          {(canEditInventory) && (
                             <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem' }}>
                               <button onClick={() => {
                                 setBorrowForm({ ...borrowForm, inventory_id: item.id!, quantity: 1 });

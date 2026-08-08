@@ -362,7 +362,7 @@ router.put('/auth/profile', verifyToken, async (req: AuthRequest, res: Response)
 });
 
 // --- Admin Endpoints ---
-router.get('/admin/users', verifyToken, verifyRole(['super_admin', 'pengerusi']), async (req: AuthRequest, res: Response) => {
+router.get('/admin/users', verifyToken, verifyRole(['super_admin', 'pengerusi', 'timbalan_pengerusi', 'setiausaha']), async (req: AuthRequest, res: Response) => {
   try {
     const db = await getDb();
     let rows;
@@ -455,7 +455,7 @@ router.delete('/admin/users/:id', verifyToken, verifySuperAdmin, async (req: Aut
   }
 });
 // --- Events API ---
-router.post('/admin/events', verifyToken, verifyRole(['setiausaha', 'super_admin']), async (req: AuthRequest, res: Response) => {
+router.post('/admin/events', verifyToken, verifyRole(['setiausaha', 'penolong_setiausaha', 'pengerusi', 'super_admin']), async (req: AuthRequest, res: Response) => {
   try {
     const db = await getDb();
     const { title, description, image_url, event_date, venue } = req.body;
@@ -465,9 +465,10 @@ router.post('/admin/events', verifyToken, verifyRole(['setiausaha', 'super_admin
     }
 
     const id = randomUUID();
+    const modifiedBy = req.user?.name || 'Sistem';
     await db.run(
-      'INSERT INTO events (id, title, description, image_url, event_date, venue) VALUES (?, ?, ?, ?, ?, ?)',
-      [id, title, description || null, image_url || null, event_date, venue || null]
+      'INSERT INTO events (id, title, description, image_url, event_date, venue, last_modified_by) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [id, title, description || null, image_url || null, event_date, venue || null, modifiedBy]
     );
 
     res.status(201).json({ success: true, id });
@@ -476,15 +477,16 @@ router.post('/admin/events', verifyToken, verifyRole(['setiausaha', 'super_admin
   }
 });
 
-router.put('/admin/events/:id', verifyToken, verifyRole(['setiausaha', 'super_admin']), async (req: AuthRequest, res: Response) => {
+router.put('/admin/events/:id', verifyToken, verifyRole(['setiausaha', 'penolong_setiausaha', 'pengerusi', 'super_admin']), async (req: AuthRequest, res: Response) => {
   try {
     const db = await getDb();
     const { id } = req.params;
     const { title, description, image_url, event_date, venue, status } = req.body;
+    const modifiedBy = req.user?.name || 'Sistem';
     
     await db.run(
-      'UPDATE events SET title = ?, description = ?, image_url = ?, event_date = ?, venue = ?, status = ? WHERE id = ?',
-      [title, description || null, image_url || null, event_date, venue || null, status || 'published', id]
+      'UPDATE events SET title = ?, description = ?, image_url = ?, event_date = ?, venue = ?, status = ?, last_modified_by = ? WHERE id = ?',
+      [title, description || null, image_url || null, event_date, venue || null, status || 'published', modifiedBy, id]
     );
 
     res.status(200).json({ success: true });
@@ -493,7 +495,7 @@ router.put('/admin/events/:id', verifyToken, verifyRole(['setiausaha', 'super_ad
   }
 });
 
-router.delete('/admin/events/:id', verifyToken, verifyRole(['setiausaha', 'super_admin']), async (req: AuthRequest, res: Response) => {
+router.delete('/admin/events/:id', verifyToken, verifyRole(['setiausaha', 'penolong_setiausaha', 'pengerusi', 'super_admin']), async (req: AuthRequest, res: Response) => {
   try {
     const db = await getDb();
     const { id } = req.params;
@@ -590,7 +592,7 @@ router.get('/public/receipts/:id', async (req: Request, res: Response) => {
 });
 
 // --- Finance API (Bendahari) ---
-router.get('/admin/finance/transactions', verifyToken, verifyRole(['bendahari', 'super_admin', 'pengerusi', 'timbalan_pengerusi']), async (req: AuthRequest, res: Response) => {
+router.get('/admin/finance/transactions', verifyToken, verifyRole(['bendahari', 'penolong_bendahari', 'setiausaha', 'penolong_setiausaha', 'pengerusi', 'timbalan_pengerusi', 'ajk_peralatan', 'super_admin']), async (req: AuthRequest, res: Response) => {
   try {
     const db = await getDb();
     const rows = await db.all(`
@@ -606,7 +608,7 @@ router.get('/admin/finance/transactions', verifyToken, verifyRole(['bendahari', 
   }
 });
 
-router.post('/admin/finance/transactions', verifyToken, verifyRole(['bendahari', 'super_admin']), async (req: AuthRequest, res: Response) => {
+router.post('/admin/finance/transactions', verifyToken, verifyRole(['bendahari', 'penolong_bendahari', 'pengerusi', 'super_admin']), async (req: AuthRequest, res: Response) => {
   try {
     const db = await getDb();
     const { account_code, amount, type, description, payment_method, category, receipt_url } = req.body;
@@ -616,9 +618,10 @@ router.post('/admin/finance/transactions', verifyToken, verifyRole(['bendahari',
     }
 
     const id = randomUUID();
+    const modifiedBy = req.user?.name || 'Sistem';
     await db.run(
-      'INSERT INTO transactions (id, account_code, amount, type, payment_method, category, description, status, receipt_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [id, account_code, amount, type, payment_method || 'lain-lain', category || 'lain-lain', description, 'completed', receipt_url || null]
+      'INSERT INTO transactions (id, account_code, amount, type, payment_method, category, description, status, receipt_url, last_modified_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [id, account_code, amount, type, payment_method || 'lain-lain', category || 'lain-lain', description, 'completed', receipt_url || null, modifiedBy]
     );
 
     res.status(201).json({ success: true });
@@ -627,7 +630,7 @@ router.post('/admin/finance/transactions', verifyToken, verifyRole(['bendahari',
   }
 });
 
-router.delete('/admin/finance/transactions/:id', verifyToken, verifyRole(['bendahari', 'super_admin']), async (req: AuthRequest, res: Response) => {
+router.delete('/admin/finance/transactions/:id', verifyToken, verifyRole(['bendahari', 'penolong_bendahari', 'pengerusi', 'super_admin']), async (req: AuthRequest, res: Response) => {
   try {
     const db = await getDb();
     const { id } = req.params;
@@ -639,7 +642,7 @@ router.delete('/admin/finance/transactions/:id', verifyToken, verifyRole(['benda
 });
 
 // --- Logistics / Inventory API (AJK Peralatan) ---
-router.get('/admin/inventory', verifyToken, verifyRole(['ajk_peralatan', 'super_admin', 'pengerusi', 'timbalan_pengerusi']), async (req: AuthRequest, res: Response) => {
+router.get('/admin/inventory', verifyToken, verifyRole(['bendahari', 'penolong_bendahari', 'setiausaha', 'penolong_setiausaha', 'ajk_peralatan', 'pengerusi', 'timbalan_pengerusi', 'super_admin']), async (req: AuthRequest, res: Response) => {
   try {
     const db = await getDb();
     const rows = await db.all('SELECT * FROM inventory ORDER BY updated_at DESC');
@@ -649,19 +652,20 @@ router.get('/admin/inventory', verifyToken, verifyRole(['ajk_peralatan', 'super_
   }
 });
 
-router.post('/admin/inventory', verifyToken, verifyRole(['ajk_peralatan', 'super_admin']), async (req: AuthRequest, res: Response) => {
+router.post('/admin/inventory', verifyToken, verifyRole(['ajk_peralatan', 'pengerusi', 'super_admin']), async (req: AuthRequest, res: Response) => {
   try {
     const db = await getDb();
     const { item_name, quantity, condition, notes } = req.body;
-    
-    if (!item_name) {
-      return res.status(400).json({ error: 'Sila masukkan nama barang.' });
+
+    if (!item_name || quantity === undefined) {
+      return res.status(400).json({ error: 'Nama dan kuantiti diperlukan.' });
     }
 
     const id = randomUUID();
+    const modifiedBy = req.user?.name || 'Sistem';
     await db.run(
-      'INSERT INTO inventory (id, item_name, quantity, condition, notes) VALUES (?, ?, ?, ?, ?)',
-      [id, item_name, quantity || 0, condition || 'baik', notes]
+      'INSERT INTO inventory (id, item_name, quantity, condition, notes, updated_at, last_modified_by) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?)',
+      [id, item_name, quantity, condition || 'baik', notes || null, modifiedBy]
     );
 
     res.status(201).json({ success: true });
@@ -670,15 +674,16 @@ router.post('/admin/inventory', verifyToken, verifyRole(['ajk_peralatan', 'super
   }
 });
 
-router.put('/admin/inventory/:id', verifyToken, verifyRole(['ajk_peralatan', 'super_admin']), async (req: AuthRequest, res: Response) => {
+router.put('/admin/inventory/:id', verifyToken, verifyRole(['ajk_peralatan', 'pengerusi', 'super_admin']), async (req: AuthRequest, res: Response) => {
   try {
     const db = await getDb();
     const { id } = req.params;
     const { item_name, quantity, condition, notes } = req.body;
-    
+    const modifiedBy = req.user?.name || 'Sistem';
+
     await db.run(
-      'UPDATE inventory SET item_name = ?, quantity = ?, condition = ?, notes = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-      [item_name, quantity, condition, notes, id]
+      'UPDATE inventory SET item_name = ?, quantity = ?, condition = ?, notes = ?, updated_at = CURRENT_TIMESTAMP, last_modified_by = ? WHERE id = ?',
+      [item_name, quantity, condition || 'baik', notes || null, modifiedBy, id]
     );
 
     res.status(200).json({ success: true });
@@ -687,7 +692,7 @@ router.put('/admin/inventory/:id', verifyToken, verifyRole(['ajk_peralatan', 'su
   }
 });
 
-router.delete('/admin/inventory/:id', verifyToken, verifyRole(['ajk_peralatan', 'super_admin']), async (req: AuthRequest, res: Response) => {
+router.delete('/admin/inventory/:id', verifyToken, verifyRole(['ajk_peralatan', 'pengerusi', 'super_admin']), async (req: AuthRequest, res: Response) => {
   try {
     const db = await getDb();
     const { id } = req.params;
@@ -714,7 +719,7 @@ router.get('/admin/inventory/loans', verifyToken, verifyRole(['ajk_peralatan', '
   }
 });
 
-router.post('/admin/inventory/loans', verifyToken, verifyRole(['ajk_peralatan', 'super_admin']), async (req: AuthRequest, res: Response) => {
+router.post('/admin/inventory/loans', verifyToken, verifyRole(['ajk_peralatan', 'pengerusi', 'super_admin']), async (req: AuthRequest, res: Response) => {
   try {
     const db = await getDb();
     const { inventory_id, borrower_name, borrower_phone, quantity } = req.body;
@@ -735,7 +740,7 @@ router.post('/admin/inventory/loans', verifyToken, verifyRole(['ajk_peralatan', 
   }
 });
 
-router.put('/admin/inventory/loans/:id/return', verifyToken, verifyRole(['ajk_peralatan', 'super_admin']), async (req: AuthRequest, res: Response) => {
+router.put('/admin/inventory/loans/:id/return', verifyToken, verifyRole(['ajk_peralatan', 'pengerusi', 'super_admin']), async (req: AuthRequest, res: Response) => {
   try {
     const db = await getDb();
     const { id } = req.params;

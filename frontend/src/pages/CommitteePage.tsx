@@ -20,39 +20,15 @@ const CommitteePage: React.FC = () => {
               <Users className="icon" size={24} color="var(--color-primary)" />
               <h2>Ahli Jawatankuasa Pengurusan Masjid</h2>
             </div>
-            <div className="org-chart-content" style={{ marginTop: '2rem' }}>
-              <div className="org-level">
-                <div className="org-node leader">
-                  <div className="role">Pengerusi</div>
-                  <div className="name">Ustaz Ahmad Bin Abdullah</div>
-                </div>
-              </div>
-              
-              <div className="org-connector"></div>
-              
-              <div className="org-level">
-                <div className="org-node">
-                  <div className="role">Timbalan Pengerusi</div>
-                  <div className="name">Haji Mohd Ali</div>
-                </div>
-              </div>
-
-              <div className="org-connector"></div>
-
-              <div className="org-level split-level" style={{ flexWrap: 'wrap' }}>
-                <div className="org-node">
-                  <div className="role">Setiausaha</div>
-                  <div className="name">En. Syahril</div>
-                </div>
-                <div className="org-node">
-                  <div className="role">Bendahari</div>
-                  <div className="name">En. Rahman</div>
-                </div>
-                <div className="org-node">
-                  <div className="role">AJK Peralatan & Logistik</div>
-                  <div className="name">En. Ismail</div>
-                </div>
-              </div>
+            <div className="org-chart-content" style={{ marginTop: '2rem', textAlign: 'center' }}>
+              <a href="/banner_ajk.jpg" target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block' }}>
+                <img 
+                  src="/banner_ajk.jpg" 
+                  alt="Carta Organisasi Jawatankuasa" 
+                  style={{ maxWidth: '100%', height: 'auto', borderRadius: '12px', cursor: 'zoom-in', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                  title="Klik untuk lihat imej penuh"
+                />
+              </a>
             </div>
           </div>
         </div>

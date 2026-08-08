@@ -9,6 +9,7 @@ export interface AuthRequest extends Request {
     id: string;
     email: string;
     role: string;
+    name: string;
   };
 }
 
@@ -24,7 +25,7 @@ export const verifyToken = (req: AuthRequest, res: Response, next: NextFunction)
     
     // Fetch fresh user data from DB to prevent stale token roles
     getDb().then(db => {
-      db.get('SELECT role FROM users WHERE id = ?', [decoded.id]).then(dbUser => {
+      db.get('SELECT role, name FROM users WHERE id = ?', [decoded.id]).then(dbUser => {
         if (!dbUser) {
           return res.status(401).json({ error: 'Pengguna tidak dijumpai.' });
         }
@@ -32,7 +33,8 @@ export const verifyToken = (req: AuthRequest, res: Response, next: NextFunction)
         req.user = {
           id: decoded.id,
           email: decoded.email,
-          role: dbUser.role
+          role: dbUser.role,
+          name: dbUser.name
         };
         
         // Check if user is pending
