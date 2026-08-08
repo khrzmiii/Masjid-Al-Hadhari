@@ -385,7 +385,7 @@ router.put('/admin/users/:id/role', verifyToken, verifyRole(['pengerusi']), asyn
     const { role } = req.body;
     const { id } = req.params;
     
-    const allowedRoles = ['admin', 'super_admin', 'pending', 'setiausaha', 'bendahari', 'ajk_peralatan', 'public', 'pengerusi', 'timbalan_pengerusi'];
+    const allowedRoles = ['admin', 'super_admin', 'pending', 'public', 'penaung', 'penasihat', 'pengerusi', 'timbalan_pengerusi', 'setiausaha', 'penolong_setiausaha', 'bendahari', 'penolong_bendahari', 'ajk_dakwah', 'ajk_kebersihan', 'ajk_peralatan', 'ajk_perkuburan', 'ajk_kebajikan', 'ajk_keselamatan', 'ajk_pembangunan', 'ajk_kesukarelawan', 'ajk_belia_ekonomi', 'ajk_kesenian', 'ajk_penerbitan', 'ajk_perayaan', 'ajk_muslimah', 'ajk_tugas_khas', 'ajk_hal_ehwal_belia', 'ajk_unit_khas', 'pegawai_dokumentasi', 'pegawai_juruaudit_dalaman', 'pegawai_juruaudit_luar', 'pegawai_sukan', 'imam_rawatib', 'imam_kariah', 'ajk_kecil'];
     if (!allowedRoles.includes(role)) {
       return res.status(400).json({ error: 'Peranan tidak sah.' });
     }

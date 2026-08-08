@@ -146,9 +146,9 @@ const AdminDashboard: React.FC = () => {
 
     if (activeTab === 'users' && (user?.role === 'super_admin' || user?.role === 'pengerusi')) {
       fetchUsers();
-    } else if (activeTab === 'events' && (user?.role === 'super_admin' || user?.role === 'setiausaha' || user?.role === 'pengerusi' || user?.role === 'timbalan_pengerusi')) {
+    } else if (activeTab === 'events' && (user?.role === 'super_admin' || user?.role === 'setiausaha' || user?.role === 'penolong_setiausaha' || user?.role === 'pengerusi' || user?.role === 'timbalan_pengerusi')) {
       fetchAdminEvents();
-    } else if (activeTab === 'finance' && (user?.role === 'super_admin' || user?.role === 'bendahari' || user?.role === 'pengerusi' || user?.role === 'timbalan_pengerusi')) {
+    } else if (activeTab === 'finance' && (user?.role === 'super_admin' || user?.role === 'bendahari' || user?.role === 'penolong_bendahari' || user?.role === 'pengerusi' || user?.role === 'timbalan_pengerusi')) {
       fetchFinanceData();
     } else if (activeTab === 'logistics' && (user?.role === 'super_admin' || user?.role === 'ajk_peralatan' || user?.role === 'pengerusi' || user?.role === 'timbalan_pengerusi')) {
       fetchInventoryData();
@@ -1001,7 +1001,7 @@ const AdminDashboard: React.FC = () => {
             </div>
           )}
 
-          {activeTab === 'events' && (user?.role === 'super_admin' || user?.role === 'setiausaha' || user?.role === 'pengerusi' || user?.role === 'timbalan_pengerusi') && (
+          {activeTab === 'events' && (user?.role === 'super_admin' || user?.role === 'setiausaha' || user?.role === 'penolong_setiausaha' || user?.role === 'pengerusi' || user?.role === 'timbalan_pengerusi') && (
             <div className="card-container">
               {(canEditEvents) && (
                 <>
@@ -1090,7 +1090,7 @@ const AdminDashboard: React.FC = () => {
             </div>
           )}
 
-          {activeTab === 'finance' && (user?.role === 'super_admin' || user?.role === 'bendahari' || user?.role === 'pengerusi' || user?.role === 'timbalan_pengerusi') && (
+          {activeTab === 'finance' && (user?.role === 'super_admin' || user?.role === 'bendahari' || user?.role === 'penolong_bendahari' || user?.role === 'pengerusi' || user?.role === 'timbalan_pengerusi') && (
             <div className="card-container" style={{ gap: '2rem', display: 'flex', flexDirection: 'column' }}>
               <div className="finance-cards-wrapper" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem', marginBottom: '1rem' }}>
                 <div className="glass-panel" style={{ padding: '2rem', background: 'linear-gradient(135deg, #064e3b 0%, #047857 100%)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px', boxShadow: '0 10px 25px -5px rgba(4, 120, 87, 0.4)' }}>
