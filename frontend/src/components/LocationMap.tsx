@@ -42,8 +42,8 @@ const LocationMap: React.FC = () => {
               </div>
               <div className="contact-details">
                 <h3>Pengerusi Masjid</h3>
-                <p>Nama Pengerusi: <strong>Akan Dikemas Kini</strong></p>
-                <p>No. Telefon: <strong>+60 12-345 6789</strong></p>
+                <p>Nama Pengerusi: <strong>Abdul Jabar bin Abdullah</strong></p>
+                <p>No. Telefon: <strong>+60 19-830 5298</strong></p>
               </div>
             </div>
 
