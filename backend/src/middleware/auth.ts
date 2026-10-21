@@ -10,6 +10,9 @@ export interface AuthRequest extends Request {
     email: string;
     role: string;
     name: string;
+    phone_number?: string;
+    avatar_url?: string;
+    auth_provider?: string;
   };
 }
 
@@ -25,7 +28,7 @@ export const verifyToken = (req: AuthRequest, res: Response, next: NextFunction)
     
     // Fetch fresh user data from DB to prevent stale token roles
     getDb().then(db => {
-      db.get('SELECT role, name FROM users WHERE id = ?', [decoded.id]).then(dbUser => {
+      db.get('SELECT role, name, phone_number, avatar_url, auth_provider FROM users WHERE id = ?', [decoded.id]).then(dbUser => {
         if (!dbUser) {
           return res.status(401).json({ error: 'Pengguna tidak dijumpai.' });
         }
@@ -34,7 +37,10 @@ export const verifyToken = (req: AuthRequest, res: Response, next: NextFunction)
           id: decoded.id,
           email: decoded.email,
           role: dbUser.role,
-          name: dbUser.name
+          name: dbUser.name,
+          phone_number: dbUser.phone_number || '',
+          avatar_url: dbUser.avatar_url || '',
+          auth_provider: dbUser.auth_provider || 'local'
         };
         
         // Check if user is pending

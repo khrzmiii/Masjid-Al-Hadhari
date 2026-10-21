@@ -265,7 +265,19 @@ router.post('/auth/login', async (req: Request, res: Response) => {
     const isMatch = await bcrypt.compare(password, user.password_hash);
     if (!isMatch) return res.status(401).json({ error: 'Kata laluan tidak sah.' });
     const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '8h' });
-    res.status(200).json({ success: true, token, user: { name: user.name, role: user.role } });
+    res.status(200).json({ 
+      success: true, 
+      token, 
+      user: { 
+        id: user.id, 
+        name: user.name, 
+        email: user.email, 
+        role: user.role, 
+        phone_number: user.phone_number || '', 
+        avatar_url: user.avatar_url || '', 
+        auth_provider: user.auth_provider || 'local' 
+      } 
+    });
   } catch (err) {
     console.error('Login error:', err);
     res.status(500).json({ error: 'Ralat pelayan.' });
@@ -316,7 +328,6 @@ router.post('/auth/resend-verification', async (req: Request, res: Response) => 
   }
 });
 
-
 router.post('/auth/google', async (req: Request, res: Response) => {
   try {
     const db = await getDb();
@@ -327,37 +338,218 @@ router.post('/auth/google', async (req: Request, res: Response) => {
     const email = payload.email;
     const name = payload.name || 'Pengguna Google';
     const googleId = payload.sub;
+    const picture = payload.picture || '';
     let user = await db.get('SELECT * FROM users WHERE email = ?', [email]);
     if (user) {
       if (user.auth_provider === 'local') {
         await db.run('UPDATE users SET auth_provider = ?, google_id = ?, email_verified = true WHERE id = ?', ['google', googleId, user.id]);
         user.auth_provider = 'google'; user.google_id = googleId; user.email_verified = true;
       }
+      if (!user.avatar_url && picture) {
+        await db.run('UPDATE users SET avatar_url = ? WHERE id = ?', [picture, user.id]);
+        user.avatar_url = picture;
+      }
     } else {
       const id = randomUUID();
       const hash = await bcrypt.hash(randomBytes(16).toString('hex'), 10);
-      await db.run('INSERT INTO users (id, name, email, password_hash, role, auth_provider, email_verified, google_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', [id, name, email, hash, 'public', 'google', true, googleId]);
+      await db.run('INSERT INTO users (id, name, email, password_hash, role, auth_provider, email_verified, google_id, avatar_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [id, name, email, hash, 'public', 'google', true, googleId, picture || null]);
       user = await db.get('SELECT * FROM users WHERE id = ?', [id]);
     }
     const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '8h' });
-    res.status(200).json({ success: true, token, user: { name: user.name, role: user.role } });
+    res.status(200).json({ 
+      success: true, 
+      token, 
+      user: { 
+        id: user.id, 
+        name: user.name, 
+        email: user.email, 
+        role: user.role, 
+        phone_number: user.phone_number || '', 
+        avatar_url: user.avatar_url || '', 
+        auth_provider: user.auth_provider || 'google' 
+      } 
+    });
   } catch (err) {
     console.error('Google Auth error:', err);
     res.status(500).json({ error: 'Ralat pelayan semasa log masuk Google.' });
   }
 });
 
+// Get current user profile
+router.get('/auth/me', verifyToken, async (req: AuthRequest, res: Response) => {
+  try {
+    const db = await getDb();
+    const user = await db.get('SELECT id, name, email, role, phone_number, avatar_url, auth_provider, created_at FROM users WHERE id = ?', [req.user?.id]);
+    if (!user) return res.status(404).json({ error: 'Pengguna tidak dijumpai.' });
+    res.status(200).json({ success: true, user });
+  } catch (err) {
+    res.status(500).json({ error: 'Ralat pelayan.' });
+  }
+});
+
+// Update profile details
 router.put('/auth/profile', verifyToken, async (req: AuthRequest, res: Response) => {
   try {
     const db = await getDb();
-    const { name } = req.body;
+    const { name, phone_number, avatar_url } = req.body;
     if (!name) return res.status(400).json({ error: 'Nama tidak boleh kosong.' });
     if (!req.user || !req.user.id) return res.status(401).json({ error: 'Tidak dibenarkan.' });
-    await db.run('UPDATE users SET name = ? WHERE id = ?', [name, req.user.id]);
-    res.status(200).json({ success: true, message: 'Profil berjaya dikemaskini.', user: { name, role: req.user.role } });
+    
+    await db.run(
+      'UPDATE users SET name = ?, phone_number = ?, avatar_url = ? WHERE id = ?', 
+      [name, phone_number || null, avatar_url || null, req.user.id]
+    );
+
+    const updatedUser = await db.get(
+      'SELECT id, name, email, role, phone_number, avatar_url, auth_provider FROM users WHERE id = ?',
+      [req.user.id]
+    );
+
+    res.status(200).json({ 
+      success: true, 
+      message: 'Profil berjaya dikemaskini.', 
+      user: updatedUser 
+    });
   } catch (err) {
     console.error('Update profile error:', err);
     res.status(500).json({ error: 'Ralat pelayan semasa kemaskini profil.' });
+  }
+});
+
+// Change password for local users
+router.put('/auth/change-password', verifyToken, async (req: AuthRequest, res: Response) => {
+  try {
+    const db = await getDb();
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ error: 'Sila lengkapkan kata laluan semasa dan baharu.' });
+    }
+    if (newPassword.length < 6) {
+      return res.status(400).json({ error: 'Kata laluan baharu mesti sekurang-kurangnya 6 aksara.' });
+    }
+    const user = await db.get('SELECT * FROM users WHERE id = ?', [req.user?.id]);
+    if (!user) return res.status(404).json({ error: 'Pengguna tidak dijumpai.' });
+    if (user.auth_provider === 'google') {
+      return res.status(400).json({ error: 'Akaun anda menggunakan log masuk Google dan tidak memerlukan kata laluan manual.' });
+    }
+    const isMatch = await bcrypt.compare(currentPassword, user.password_hash);
+    if (!isMatch) {
+      return res.status(400).json({ error: 'Kata laluan semasa tidak tepat.' });
+    }
+    const newHash = await bcrypt.hash(newPassword, 10);
+    await db.run('UPDATE users SET password_hash = ? WHERE id = ?', [newHash, user.id]);
+    res.status(200).json({ success: true, message: 'Kata laluan berjaya dikemaskini.' });
+  } catch (err) {
+    console.error('Change password error:', err);
+    res.status(500).json({ error: 'Ralat pelayan semasa mengemaskini kata laluan.' });
+  }
+});
+
+// Forgot password request
+router.post('/auth/forgot-password', async (req: Request, res: Response) => {
+  try {
+    const db = await getDb();
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: 'Sila masukkan alamat emel anda.' });
+    
+    const user = await db.get('SELECT * FROM users WHERE email = ?', [email]);
+    if (!user) {
+      return res.status(200).json({ success: true, message: 'Sekiranya emel berdaftar wujud dalam sistem, pautan tetapan semula kata laluan telah dihantar.' });
+    }
+    if (user.auth_provider === 'google') {
+      return res.status(400).json({ error: 'Akaun ini berdaftar menggunakan Google Auth. Sila log masuk dengan butang Google.' });
+    }
+
+    const resetToken = randomBytes(32).toString('hex');
+    const expires = new Date(Date.now() + 3600000).toISOString(); // 1 hour validity
+    await db.run('UPDATE users SET reset_token = ?, reset_token_expires = ? WHERE id = ?', [resetToken, expires, user.id]);
+
+    const baseUrl = process.env.APP_URL || 'https://masjid-al-hadhari.onrender.com';
+    const resetLink = `${baseUrl}/login?resetToken=${resetToken}`;
+    const emailHtml = `
+      <div style="font-family:Arial,sans-serif;padding:20px;max-width:600px;margin:0 auto;border:1px solid #e5e7eb;border-radius:8px">
+        <h2 style="color:#047857;text-align:center">Tetapan Semula Kata Laluan</h2>
+        <p>Salam sejahtera ${user.name},</p>
+        <p>Kami menerima permohonan untuk menetapkan semula kata laluan akaun Masjid Al-Hadhari anda.</p>
+        <p>Sila klik butang di bawah untuk memasukkan kata laluan baharu anda (pautan sah selama 1 jam):</p>
+        <div style="text-align:center;margin:30px 0">
+          <a href="${resetLink}" style="background-color:#059669;color:white;padding:12px 24px;text-decoration:none;border-radius:6px;font-weight:bold;display:inline-block">Tetapkan Semula Kata Laluan</a>
+        </div>
+        <p style="font-size:13px;color:#6b7280;text-align:center">Atau salin pautan ini ke pelayar web anda:<br/>${resetLink}</p>
+      </div>
+    `;
+
+    if (process.env.BREVO_API_KEY) {
+      try {
+        await fetch('https://api.brevo.com/v3/smtp/email', {
+          method: 'POST',
+          headers: { 'accept': 'application/json', 'api-key': process.env.BREVO_API_KEY, 'content-type': 'application/json' },
+          body: JSON.stringify({ 
+            sender: { name: 'Sistem Masjid Al-Hadhari', email: process.env.SMTP_USER || 'masjid.alhadhari.web.app@gmail.com' }, 
+            to: [{ email: user.email, name: user.name }], 
+            subject: 'Tetapan Semula Kata Laluan Akaun Masjid Al-Hadhari', 
+            htmlContent: emailHtml 
+          })
+        });
+      } catch (e: any) { console.error('[BREVO RESET ERROR]', e.message); }
+    } else if (process.env.RESEND_API_KEY) {
+      try {
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        await resend.emails.send({ from: 'Sistem Masjid Al-Hadhari <onboarding@resend.dev>', to: [user.email], subject: 'Tetapan Semula Kata Laluan Akaun Anda', html: emailHtml });
+      } catch (e: any) { console.error('[RESEND RESET ERROR]', e.message); }
+    } else {
+      console.log(`[MOCK RESET LINK]: ${resetLink}`);
+    }
+
+    res.status(200).json({ 
+      success: true, 
+      message: 'Pautan tetapan semula kata laluan telah dihantar ke emel anda.',
+      devToken: resetToken 
+    });
+  } catch (err) {
+    console.error('Forgot password error:', err);
+    res.status(500).json({ error: 'Ralat pelayan.' });
+  }
+});
+
+// Reset password execution
+router.post('/auth/reset-password', async (req: Request, res: Response) => {
+  try {
+    const db = await getDb();
+    const { token, newPassword } = req.body;
+    if (!token || !newPassword) return res.status(400).json({ error: 'Token dan kata laluan baharu diperlukan.' });
+    if (newPassword.length < 6) return res.status(400).json({ error: 'Kata laluan baharu mesti sekurang-kurangnya 6 aksara.' });
+
+    const user = await db.get('SELECT * FROM users WHERE reset_token = ?', [token]);
+    if (!user) return res.status(400).json({ error: 'Pautan tetapan semula tidak sah.' });
+    if (user.reset_token_expires && new Date(user.reset_token_expires).getTime() < Date.now()) {
+      return res.status(400).json({ error: 'Pautan tetapan semula telah luput tempoh. Sila buat permintaan baharu.' });
+    }
+
+    const hash = await bcrypt.hash(newPassword, 10);
+    await db.run('UPDATE users SET password_hash = ?, reset_token = NULL, reset_token_expires = NULL WHERE id = ?', [hash, user.id]);
+    res.status(200).json({ success: true, message: 'Kata laluan berjaya dikemaskini. Sila log masuk dengan kata laluan baharu anda.' });
+  } catch (err) {
+    console.error('Reset password error:', err);
+    res.status(500).json({ error: 'Ralat pelayan.' });
+  }
+});
+
+// Get activities joined by logged-in user
+router.get('/user/events', verifyToken, async (req: AuthRequest, res: Response) => {
+  try {
+    const db = await getDb();
+    const rows = await db.all(`
+      SELECT e.id, e.title, e.description, e.image_url, e.event_date, e.venue, e.status, e.has_certificate, ep.created_at as joined_at
+      FROM event_participants ep
+      JOIN events e ON ep.event_id = e.id
+      WHERE ep.user_id = ?
+      ORDER BY e.event_date DESC
+    `, [req.user?.id]);
+    res.status(200).json({ success: true, data: rows || [] });
+  } catch (err) {
+    console.error('Fetch user events error:', err);
+    res.status(500).json({ error: 'Ralat pelayan.' });
   }
 });
 
@@ -467,7 +659,7 @@ router.post('/admin/events', verifyToken, verifyRole(['setiausaha', 'penolong_se
     const id = randomUUID();
     const modifiedBy = req.user?.name || 'Sistem';
     await db.run(
-      'INSERT INTO events (id, title, description, image_url, event_date, venue, last_modified_by) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO events (id, title, description, image_url, event_date, venue, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?)',
       [id, title, description || null, image_url || null, event_date, venue || null, modifiedBy]
     );
 
@@ -485,7 +677,7 @@ router.put('/admin/events/:id', verifyToken, verifyRole(['setiausaha', 'penolong
     const modifiedBy = req.user?.name || 'Sistem';
     
     await db.run(
-      'UPDATE events SET title = ?, description = ?, image_url = ?, event_date = ?, venue = ?, status = ?, last_modified_by = ? WHERE id = ?',
+      'UPDATE events SET title = ?, description = ?, image_url = ?, event_date = ?, venue = ?, status = ?, updated_by = ? WHERE id = ?',
       [title, description || null, image_url || null, event_date, venue || null, status || 'published', modifiedBy, id]
     );
 
@@ -620,11 +812,40 @@ router.post('/admin/finance/transactions', verifyToken, verifyRole(['bendahari',
     const id = randomUUID();
     const modifiedBy = req.user?.name || 'Sistem';
     await db.run(
-      'INSERT INTO transactions (id, account_code, amount, type, payment_method, category, description, status, receipt_url, last_modified_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO transactions (id, account_code, amount, type, payment_method, category, description, status, receipt_url, updated_by, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)',
       [id, account_code, amount, type, payment_method || 'lain-lain', category || 'lain-lain', description, 'completed', receipt_url || null, modifiedBy]
     );
 
     res.status(201).json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+  }
+});
+
+router.put('/admin/finance/transactions/:id', verifyToken, verifyRole(['bendahari', 'penolong_bendahari', 'pengerusi', 'super_admin']), async (req: AuthRequest, res: Response) => {
+  try {
+    const db = await getDb();
+    const { id } = req.params;
+    const { account_code, amount, type, description, payment_method, category, receipt_url } = req.body;
+    
+    if (!account_code || !amount || !type) {
+      return res.status(400).json({ error: 'Sila lengkapkan maklumat transaksi.' });
+    }
+
+    const modifiedBy = req.user?.name || 'Sistem';
+    
+    // Check if exists
+    const transaction = await db.get('SELECT * FROM transactions WHERE id = ?', [id]);
+    if (!transaction) {
+      return res.status(404).json({ error: 'Transaksi tidak dijumpai.' });
+    }
+
+    await db.run(
+      'UPDATE transactions SET account_code = ?, amount = ?, type = ?, description = ?, payment_method = ?, category = ?, receipt_url = ?, updated_by = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      [account_code, amount, type, description, payment_method, category, receipt_url !== undefined ? receipt_url : transaction.receipt_url, modifiedBy, id]
+    );
+    
+    res.status(200).json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
   }
@@ -664,7 +885,7 @@ router.post('/admin/inventory', verifyToken, verifyRole(['ajk_peralatan', 'penge
     const id = randomUUID();
     const modifiedBy = req.user?.name || 'Sistem';
     await db.run(
-      'INSERT INTO inventory (id, item_name, quantity, condition, notes, updated_at, last_modified_by) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?)',
+      'INSERT INTO inventory (id, item_name, quantity, condition, notes, updated_at, updated_by) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?)',
       [id, item_name, quantity, condition || 'baik', notes || null, modifiedBy]
     );
 
@@ -682,7 +903,7 @@ router.put('/admin/inventory/:id', verifyToken, verifyRole(['ajk_peralatan', 'pe
     const modifiedBy = req.user?.name || 'Sistem';
 
     await db.run(
-      'UPDATE inventory SET item_name = ?, quantity = ?, condition = ?, notes = ?, updated_at = CURRENT_TIMESTAMP, last_modified_by = ? WHERE id = ?',
+      'UPDATE inventory SET item_name = ?, quantity = ?, condition = ?, notes = ?, updated_at = CURRENT_TIMESTAMP, updated_by = ? WHERE id = ?',
       [item_name, quantity, condition || 'baik', notes || null, modifiedBy, id]
     );
 
@@ -728,10 +949,25 @@ router.post('/admin/inventory/loans', verifyToken, verifyRole(['ajk_peralatan', 
       return res.status(400).json({ error: 'Sila lengkapkan maklumat pinjaman.' });
     }
 
+    // Validation: Check if requested quantity exceeds available quantity
+    const inventory = await db.get('SELECT quantity FROM inventory WHERE id = ?', [inventory_id]);
+    if (!inventory) {
+      return res.status(404).json({ error: 'Barang tidak ditemui.' });
+    }
+
+    const activeLoans = await db.get('SELECT SUM(quantity) as total_borrowed FROM inventory_loans WHERE inventory_id = ? AND status = ?', [inventory_id, 'dipinjam']);
+    const totalBorrowed = activeLoans?.total_borrowed || 0;
+    const availableQuantity = inventory.quantity - totalBorrowed;
+
+    if (Number(quantity) > availableQuantity) {
+      return res.status(400).json({ error: `Kuantiti tidak mencukupi. Baki sedia ada: ${availableQuantity}` });
+    }
+
     const id = randomUUID();
+    const modifiedBy = req.user?.name || 'Sistem';
     await db.run(
-      'INSERT INTO inventory_loans (id, inventory_id, borrower_name, borrower_phone, quantity) VALUES (?, ?, ?, ?, ?)',
-      [id, inventory_id, borrower_name, borrower_phone || null, Number(quantity)]
+      'INSERT INTO inventory_loans (id, inventory_id, borrower_name, borrower_phone, quantity, updated_by) VALUES (?, ?, ?, ?, ?, ?)',
+      [id, inventory_id, borrower_name, borrower_phone || null, Number(quantity), modifiedBy]
     );
 
     res.status(201).json({ success: true });
@@ -745,9 +981,10 @@ router.put('/admin/inventory/loans/:id/return', verifyToken, verifyRole(['ajk_pe
     const db = await getDb();
     const { id } = req.params;
     
+    const modifiedBy = req.user?.name || 'Sistem';
     await db.run(
-      'UPDATE inventory_loans SET status = ?, return_date = CURRENT_TIMESTAMP WHERE id = ?',
-      ['dipulangkan', id]
+      'UPDATE inventory_loans SET status = ?, return_date = CURRENT_TIMESTAMP, updated_by = ? WHERE id = ?',
+      ['dipulangkan', modifiedBy, id]
     );
 
     res.status(200).json({ success: true });

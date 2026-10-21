@@ -20,6 +20,7 @@ interface EventData {
   image_url: string;
   event_date: string;
   venue: string;
+  updated_by?: string;
 }
 
 interface TransactionData {
@@ -34,6 +35,8 @@ interface TransactionData {
   status?: string;
   receipt_url?: string;
   created_at?: string;
+  updated_by?: string;
+  updated_at?: string;
 }
 
 interface AccountData {
@@ -49,6 +52,7 @@ interface InventoryData {
   condition: string;
   notes: string;
   updated_at?: string;
+  updated_by?: string;
 }
 
 interface InventoryLoanData {
@@ -61,6 +65,7 @@ interface InventoryLoanData {
   borrow_date?: string;
   return_date?: string;
   status?: string;
+  updated_by?: string;
 }
 
 const AdminDashboard: React.FC = () => {
@@ -110,6 +115,7 @@ const AdminDashboard: React.FC = () => {
   const [newTransaction, setNewTransaction] = useState<TransactionData>({
     account_code: '', amount: 0, type: 'income', description: '', payment_method: 'Atas Talian', category: 'Lain-lain'
   });
+  const [editingTransactionId, setEditingTransactionId] = useState<string | null>(null);
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [receiptModalUrl, setReceiptModalUrl] = useState<string | null>(null);
 
@@ -366,19 +372,37 @@ const AdminDashboard: React.FC = () => {
         }
       }
 
-      const response = await fetch('/api/v1/admin/finance/transactions', {
-        method: 'POST',
+      const url = editingTransactionId ? `/api/v1/admin/finance/transactions/${editingTransactionId}` : '/api/v1/admin/finance/transactions';
+      const method = editingTransactionId ? 'PUT' : 'POST';
+      const response = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ ...newTransaction, receipt_url: finalReceiptUrl })
       });
       if (response.ok) {
         fetchFinanceData();
         setNewTransaction({ account_code: '', amount: 0, type: 'income', description: '', payment_method: 'Atas Talian', category: 'Lain-lain' });
+        setEditingTransactionId(null);
         setReceiptFile(null);
       }
     } catch (err) {
       alert('Ralat pelayan.');
     }
+  };
+
+  const handleEditTransactionClick = (t: TransactionData) => {
+    setEditingTransactionId(t.id!);
+    setNewTransaction({
+      account_code: t.account_code,
+      amount: t.amount,
+      type: t.type,
+      description: t.description,
+      payment_method: t.payment_method || 'Atas Talian',
+      category: t.category || 'Lain-lain',
+      receipt_url: t.receipt_url
+    });
+    setReceiptFile(null);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleDeleteTransaction = async (id: string) => {
@@ -1061,6 +1085,7 @@ const AdminDashboard: React.FC = () => {
                         <th style={{ padding: '1rem', textAlign: 'left', color: '#475569', fontWeight: '600', borderBottom: '2px solid #e2e8f0' }}>Tarikh & Masa</th>
                         <th style={{ padding: '1rem', textAlign: 'left', color: '#475569', fontWeight: '600', borderBottom: '2px solid #e2e8f0' }}>Tajuk Aktiviti</th>
                         <th style={{ padding: '1rem', textAlign: 'left', color: '#475569', fontWeight: '600', borderBottom: '2px solid #e2e8f0' }}>Lokasi</th>
+                        <th style={{ padding: '1rem', textAlign: 'left', color: '#475569', fontWeight: '600', borderBottom: '2px solid #e2e8f0' }}>Dikemaskini Oleh</th>
                         <th style={{ padding: '1rem', textAlign: 'center', color: '#475569', fontWeight: '600', borderBottom: '2px solid #e2e8f0' }}>Tindakan</th>
                       </tr>
                     </thead>
@@ -1070,6 +1095,7 @@ const AdminDashboard: React.FC = () => {
                           <td style={{ padding: '1rem', color: '#334155', fontWeight: '500' }}>{new Date(ev.event_date).toLocaleString('ms-MY', { dateStyle: 'medium', timeStyle: 'short' })}</td>
                           <td style={{ padding: '1rem', fontWeight: '600', color: '#0f172a' }}>{ev.title}</td>
                           <td style={{ padding: '1rem', color: '#64748b' }}>{ev.venue || '-'}</td>
+                          <td style={{ padding: '1rem', color: '#64748b', fontSize: '0.9rem' }}>{ev.updated_by || '-'}</td>
                           <td style={{ padding: '1rem', textAlign: 'center' }}>
                             <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
                               <button onClick={() => fetchParticipants(ev)} style={{ backgroundColor: '#0ea5e9', color: 'white', border: 'none', padding: '0.4rem 0.8rem', borderRadius: '6px', cursor: 'pointer', fontWeight: '500', transition: 'background-color 0.2s' }}>Peserta</button>
@@ -1148,7 +1174,7 @@ const AdminDashboard: React.FC = () => {
                     <div style={{ background: '#ecfdf5', padding: '0.75rem', borderRadius: '12px' }}>
                       <Wallet size={24} color="#059669" />
                     </div>
-                    <h3 style={{ margin: 0, color: '#0f172a', fontSize: '1.5rem', fontWeight: '700' }}>Rekod Transaksi Baharu</h3>
+                    <h3 style={{ margin: 0, color: '#0f172a', fontSize: '1.5rem', fontWeight: '700' }}>{editingTransactionId ? 'Kemaskini Transaksi' : 'Rekod Transaksi Baharu'}</h3>
                   </div>
                   
                   <form onSubmit={handleCreateTransaction} className="responsive-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>
@@ -1200,10 +1226,15 @@ const AdminDashboard: React.FC = () => {
                       <input type="file" accept="image/*,.pdf" onChange={e => setReceiptFile(e.target.files?.[0] || null)} className="form-input" style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', fontWeight: '500' }} />
                       {receiptFile && <span style={{ fontSize: '0.8rem', color: '#059669', fontWeight: 'bold' }}>Fail sedia untuk dimuat naik: {receiptFile.name}</span>}
                     </div>
-                    <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
-                      <button type="submit" className="btn btn-primary" style={{ padding: '0.85rem 2.5rem', fontWeight: 'bold', borderRadius: '8px', backgroundColor: 'var(--color-primary)', boxShadow: '0 4px 6px -1px rgba(5, 150, 105, 0.4)', transition: 'all 0.2s ease' }}>
-                        Simpan Rekod
+                    <div style={{ gridColumn: '1 / -1', display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
+                      <button type="submit" className="btn-primary" style={{ padding: '0.8rem 1.5rem', backgroundColor: '#059669', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', transition: 'all 0.2s', boxShadow: '0 4px 6px -1px rgba(5, 150, 105, 0.2), 0 2px 4px -1px rgba(5, 150, 105, 0.1)' }} onMouseOver={e => Object.assign(e.currentTarget.style, { backgroundColor: '#047857', transform: 'translateY(-1px)' })} onMouseOut={e => Object.assign(e.currentTarget.style, { backgroundColor: '#059669', transform: 'none' })}>
+                        {editingTransactionId ? 'Kemaskini Transaksi' : 'Simpan Transaksi'}
                       </button>
+                      {editingTransactionId && (
+                        <button type="button" onClick={() => { setEditingTransactionId(null); setNewTransaction({ account_code: '', amount: 0, type: 'income', description: '', payment_method: 'Atas Talian', category: 'Lain-lain' }); setReceiptFile(null); }} style={{ padding: '0.8rem 1.5rem', backgroundColor: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', transition: 'all 0.2s' }}>
+                          Batal
+                        </button>
+                      )}
                     </div>
                   </form>
                 </div>
@@ -1256,6 +1287,7 @@ const AdminDashboard: React.FC = () => {
                         <th style={{ padding: '1.25rem 1rem', textAlign: 'left', color: '#475569', fontWeight: '700', borderBottom: '2px solid #e2e8f0', fontSize: '0.95rem' }}>Kaedah</th>
                         <th style={{ padding: '1.25rem 1rem', textAlign: 'left', color: '#475569', fontWeight: '700', borderBottom: '2px solid #e2e8f0', fontSize: '0.95rem' }}>Jenis</th>
                         <th style={{ padding: '1.25rem 1rem', textAlign: 'right', color: '#475569', fontWeight: '700', borderBottom: '2px solid #e2e8f0', fontSize: '0.95rem' }}>Jumlah (RM)</th>
+                        <th style={{ padding: '1.25rem 1rem', textAlign: 'left', color: '#475569', fontWeight: '700', borderBottom: '2px solid #e2e8f0', fontSize: '0.95rem' }}>Dikemaskini Oleh</th>
                         {(canEditFinance) && (
                           <th style={{ padding: '1.25rem 1rem', textAlign: 'center', color: '#475569', fontWeight: '700', borderBottom: '2px solid #e2e8f0', fontSize: '0.95rem' }}>Tindakan</th>
                         )}
@@ -1286,18 +1318,31 @@ const AdminDashboard: React.FC = () => {
                           <td style={{ padding: '1.25rem 1rem', textAlign: 'right', fontWeight: '800', fontSize: '1.15rem', color: t.type === 'income' ? '#16a34a' : '#ef4444' }}>
                             {t.type === 'income' ? '+' : '-'}{Number(t.amount || 0).toFixed(2)}
                           </td>
+                          <td style={{ padding: '1.25rem 1rem', color: '#64748b', fontSize: '0.9rem' }}>
+                            {t.updated_by ? (
+                              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                <span>{t.updated_by}</span>
+                                {t.updated_at && <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>[{new Date(t.updated_at).toLocaleString('ms-MY', { dateStyle: 'short', timeStyle: 'short' })}]</span>}
+                              </div>
+                            ) : '-'}
+                          </td>
                           {(canEditFinance) && (
                             <td style={{ padding: '1.25rem 1rem', textAlign: 'center' }}>
-                              <button onClick={() => handleDeleteTransaction(t.id!)} style={{ backgroundColor: '#fee2e2', color: '#dc2626', border: '1px solid #fecaca', padding: '0.5rem 1rem', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', transition: 'all 0.2s', fontSize: '0.9rem' }} onMouseOver={e => e.currentTarget.style.backgroundColor = '#fecaca'} onMouseOut={e => e.currentTarget.style.backgroundColor = '#fee2e2'}>
-                                Padam
-                              </button>
+                              <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
+                                <button onClick={() => handleEditTransactionClick(t)} style={{ backgroundColor: '#eab308', color: 'white', border: 'none', padding: '0.5rem 1rem', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', transition: 'all 0.2s', fontSize: '0.9rem' }} onMouseOver={e => e.currentTarget.style.backgroundColor = '#ca8a04'} onMouseOut={e => e.currentTarget.style.backgroundColor = '#eab308'}>
+                                  Sunting
+                                </button>
+                                <button onClick={() => handleDeleteTransaction(t.id!)} style={{ backgroundColor: '#fee2e2', color: '#dc2626', border: '1px solid #fecaca', padding: '0.5rem 1rem', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', transition: 'all 0.2s', fontSize: '0.9rem' }} onMouseOver={e => e.currentTarget.style.backgroundColor = '#fecaca'} onMouseOut={e => e.currentTarget.style.backgroundColor = '#fee2e2'}>
+                                  Padam
+                                </button>
+                              </div>
                             </td>
                           )}
                         </tr>
                       ))}
                       {filteredTransactions.length === 0 && (
                         <tr>
-                          <td colSpan={(canEditFinance) ? 8 : 7} style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8', fontSize: '1.1rem', fontWeight: '500' }}>
+                          <td colSpan={(canEditFinance) ? 9 : 8} style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8', fontSize: '1.1rem', fontWeight: '500' }}>
                             Tiada rekod transaksi dijumpai untuk kriteria carian ini.
                           </td>
                         </tr>
@@ -1407,7 +1452,7 @@ const AdminDashboard: React.FC = () => {
                         </td>
                         <td style={{ padding: '1rem', color: '#64748b', fontStyle: item.notes ? 'normal' : 'italic' }}>{item.notes || 'Tiada catatan'}</td>
                         <td style={{ padding: '1rem', color: '#64748b' }}>{new Date(item.updated_at!).toLocaleDateString('ms-MY')}</td>
-                        <td style={{ padding: '1rem', color: '#64748b', fontSize: '0.9rem' }}>{item.last_modified_by || '-'}</td>
+                        <td style={{ padding: '1rem', color: '#64748b', fontSize: '0.9rem' }}>{item.updated_by || '-'}</td>
                         <td style={{ padding: '1rem', textAlign: 'center' }}>
                           {(canEditInventory) && (
                             <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem' }}>
@@ -1443,12 +1488,13 @@ const AdminDashboard: React.FC = () => {
                         <th style={{ padding: '1rem', textAlign: 'left', color: '#475569', fontWeight: '600', borderBottom: '2px solid #e2e8f0' }}>Barang (Kuantiti)</th>
                         <th style={{ padding: '1rem', textAlign: 'left', color: '#475569', fontWeight: '600', borderBottom: '2px solid #e2e8f0' }}>Tarikh Pinjam</th>
                         <th style={{ padding: '1rem', textAlign: 'left', color: '#475569', fontWeight: '600', borderBottom: '2px solid #e2e8f0' }}>Status</th>
+                        <th style={{ padding: '1rem', textAlign: 'left', color: '#475569', fontWeight: '600', borderBottom: '2px solid #e2e8f0' }}>Dikemaskini Oleh</th>
                         <th style={{ padding: '1rem', textAlign: 'center', color: '#475569', fontWeight: '600', borderBottom: '2px solid #e2e8f0' }}>Tindakan</th>
                       </tr>
                     </thead>
                     <tbody>
                       {loansList.length === 0 ? (
-                        <tr><td colSpan={6} style={{ padding: '2rem', textAlign: 'center', color: '#64748b' }}>Tiada rekod pinjaman buat masa ini.</td></tr>
+                        <tr><td colSpan={7} style={{ padding: '2rem', textAlign: 'center', color: '#64748b' }}>Tiada rekod pinjaman buat masa ini.</td></tr>
                       ) : loansList.map((loan, index) => (
                         <tr key={loan.id} style={{ backgroundColor: index % 2 === 0 ? 'white' : '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
                           <td style={{ padding: '1rem', fontWeight: '600', color: '#0f172a' }}>{loan.borrower_name}</td>
@@ -1469,6 +1515,7 @@ const AdminDashboard: React.FC = () => {
                               {loan.status?.toUpperCase()}
                             </span>
                           </td>
+                          <td style={{ padding: '1rem', color: '#64748b', fontSize: '0.9rem' }}>{loan.updated_by || '-'}</td>
                           <td style={{ padding: '1rem', textAlign: 'center' }}>
                             {loan.status === 'dipinjam' && (user?.role === 'ajk_peralatan' || user?.role === 'super_admin') ? (
                               <button onClick={() => handleReturnItem(loan.id!)} style={{ backgroundColor: '#10b981', color: 'white', border: 'none', padding: '0.4rem 0.8rem', borderRadius: '6px', cursor: 'pointer', fontWeight: '500' }}>Dipulangkan</button>

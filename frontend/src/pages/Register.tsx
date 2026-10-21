@@ -53,6 +53,9 @@ const Register: React.FC = () => {
       if (response.ok && data.success) {
         localStorage.setItem('adminToken', data.token);
         localStorage.setItem('adminUser', JSON.stringify(data.user));
+        if (!data.user.phone_number || !data.user.avatar_url) {
+          sessionStorage.setItem('showProfilePrompt', 'true');
+        }
         navigate('/');
       } else {
         setError(data.error || 'Pendaftaran Google gagal.');

@@ -20,6 +20,10 @@ const runMigrations = async () => {
         google_id TEXT,
         email_verified BOOLEAN DEFAULT FALSE,
         verification_token TEXT,
+        phone_number TEXT,
+        avatar_url TEXT,
+        reset_token TEXT,
+        reset_token_expires TIMESTAMP,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
@@ -55,6 +59,8 @@ const runMigrations = async () => {
         description TEXT,
         status TEXT DEFAULT 'draft',
         receipt_url TEXT,
+        updated_by TEXT,
+        updated_at TIMESTAMP,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY(account_code) REFERENCES accounts(code)
       );
@@ -78,6 +84,8 @@ const runMigrations = async () => {
         event_date TIMESTAMP NOT NULL,
         venue TEXT,
         status TEXT DEFAULT 'published',
+        has_certificate BOOLEAN DEFAULT TRUE,
+        updated_by TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
       
@@ -100,6 +108,7 @@ const runMigrations = async () => {
         quantity INT DEFAULT 0,
         condition TEXT DEFAULT 'baik',
         notes TEXT,
+        updated_by TEXT,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
@@ -112,6 +121,7 @@ const runMigrations = async () => {
         borrower_phone TEXT,
         quantity INT NOT NULL,
         status TEXT DEFAULT 'dipinjam',
+        updated_by TEXT,
         borrow_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         return_date TIMESTAMP,
         FOREIGN KEY (inventory_id) REFERENCES inventory(id) ON DELETE CASCADE

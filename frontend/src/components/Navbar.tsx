@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, LogOut, LayoutDashboard, Menu, X } from 'lucide-react';
+import CompleteProfileModal from './CompleteProfileModal';
 
 interface NavbarProps {
   activePage: 'utama' | 'sejarah' | 'jawatankuasa' | 'aktiviti' | 'hubungi';
@@ -75,9 +76,17 @@ const Navbar: React.FC<NavbarProps> = ({ activePage }) => {
               <button 
                 onClick={() => { navigate('/profil'); setIsMobileMenuOpen(false); }}
                 className="nav-user-info"
-                style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#334155', fontWeight: '500', padding: '0.5rem' }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#334155', fontWeight: '500', padding: '0.4rem 0.6rem', borderRadius: '8px' }}
               >
-                <User size={18} />
+                {user.avatar_url ? (
+                  <img 
+                    src={user.avatar_url} 
+                    alt={user.name || 'User'} 
+                    style={{ width: '26px', height: '26px', borderRadius: '50%', objectFit: 'cover', border: '1.5px solid var(--color-primary)' }} 
+                  />
+                ) : (
+                  <User size={18} />
+                )}
                 <span>{user.name || 'Pengguna'}</span>
               </button>
               
@@ -91,6 +100,7 @@ const Navbar: React.FC<NavbarProps> = ({ activePage }) => {
           )}
         </div>
       </div>
+      <CompleteProfileModal />
     </nav>
   );
 };
