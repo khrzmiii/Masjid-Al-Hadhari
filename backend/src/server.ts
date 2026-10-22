@@ -800,6 +800,43 @@ router.get('/admin/finance/transactions', verifyToken, verifyRole(['bendahari', 
   }
 });
 
+const isCashTx = (t: any) => {
+  const pm = (t.payment_method || '').trim().toLowerCase();
+  if (pm === 'tunai' || pm === 'cash' || pm.includes('tunai') || pm.includes('cash')) return true;
+  if (t.account_code === 'TUNAI' && !pm.includes('talian')) return true;
+  return false;
+};
+
+const getAvailableBalances = async (db: any, excludeId?: string) => {
+  const query = excludeId 
+    ? 'SELECT * FROM transactions WHERE id != ?' 
+    : 'SELECT * FROM transactions';
+  const params = excludeId ? [excludeId] : [];
+  const rows = await db.all(query, params);
+
+  let cashIncome = 0;
+  let cashExpense = 0;
+  let onlineIncome = 0;
+  let onlineExpense = 0;
+
+  for (const t of rows) {
+    const amt = Number(t.amount || 0);
+    if (isCashTx(t)) {
+      if (t.type === 'income') cashIncome += amt;
+      else if (t.type === 'expense') cashExpense += amt;
+    } else {
+      if (t.type === 'income') onlineIncome += amt;
+      else if (t.type === 'expense') onlineExpense += amt;
+    }
+  }
+
+  const cashBalance = cashIncome - cashExpense;
+  const onlineBalance = onlineIncome - onlineExpense;
+  const totalBalance = (cashIncome + onlineIncome) - (cashExpense + onlineExpense);
+
+  return { cashBalance, onlineBalance, totalBalance };
+};
+
 router.post('/admin/finance/transactions', verifyToken, verifyRole(['bendahari', 'penolong_bendahari', 'pengerusi', 'super_admin']), async (req: AuthRequest, res: Response) => {
   try {
     const db = await getDb();
@@ -809,11 +846,40 @@ router.post('/admin/finance/transactions', verifyToken, verifyRole(['bendahari',
       return res.status(400).json({ error: 'Sila lengkapkan maklumat transaksi.' });
     }
 
+    const numAmount = Number(amount);
+    if (isNaN(numAmount) || numAmount <= 0) {
+      return res.status(400).json({ error: 'Amaun transaksi mestilah nombor positif lebih daripada 0.00.' });
+    }
+
+    // Validation: Block overspending / negative balance
+    if (type === 'expense') {
+      const { cashBalance, onlineBalance, totalBalance } = await getAvailableBalances(db);
+      const isSpendingCash = (payment_method === 'Tunai' || account_code === 'TUNAI');
+
+      if (isSpendingCash && numAmount > cashBalance) {
+        return res.status(400).json({
+          error: `Transaksi ditolak: Amaun perbelanjaan tunai (RM ${numAmount.toFixed(2)}) melebihi baki tunai semasa yang ada (RM ${Math.max(0, cashBalance).toFixed(2)}).`
+        });
+      }
+
+      if (!isSpendingCash && numAmount > onlineBalance) {
+        return res.status(400).json({
+          error: `Transaksi ditolak: Amaun perbelanjaan atas talian/bank (RM ${numAmount.toFixed(2)}) melebihi baki akaun bank semasa yang ada (RM ${Math.max(0, onlineBalance).toFixed(2)}).`
+        });
+      }
+
+      if (numAmount > totalBalance) {
+        return res.status(400).json({
+          error: `Transaksi ditolak: Amaun perbelanjaan (RM ${numAmount.toFixed(2)}) melebihi jumlah baki keseluruhan semasa masjid (RM ${Math.max(0, totalBalance).toFixed(2)}).`
+        });
+      }
+    }
+
     const id = randomUUID();
     const modifiedBy = req.user?.name || 'Sistem';
     await db.run(
       'INSERT INTO transactions (id, account_code, amount, type, payment_method, category, description, status, receipt_url, updated_by, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)',
-      [id, account_code, amount, type, payment_method || 'lain-lain', category || 'lain-lain', description, 'completed', receipt_url || null, modifiedBy]
+      [id, account_code, numAmount, type, payment_method || 'lain-lain', category || 'lain-lain', description, 'completed', receipt_url || null, modifiedBy]
     );
 
     res.status(201).json({ success: true });
@@ -832,17 +898,56 @@ router.put('/admin/finance/transactions/:id', verifyToken, verifyRole(['bendahar
       return res.status(400).json({ error: 'Sila lengkapkan maklumat transaksi.' });
     }
 
-    const modifiedBy = req.user?.name || 'Sistem';
-    
+    const numAmount = Number(amount);
+    if (isNaN(numAmount) || numAmount <= 0) {
+      return res.status(400).json({ error: 'Amaun transaksi mestilah nombor positif lebih daripada 0.00.' });
+    }
+
     // Check if exists
     const transaction = await db.get('SELECT * FROM transactions WHERE id = ?', [id]);
     if (!transaction) {
       return res.status(404).json({ error: 'Transaksi tidak dijumpai.' });
     }
 
+    // Validation: Check if update causes negative balance
+    const { cashBalance, onlineBalance, totalBalance } = await getAvailableBalances(db, id);
+    const isSpendingCash = (payment_method === 'Tunai' || account_code === 'TUNAI');
+
+    if (type === 'expense') {
+      if (isSpendingCash && numAmount > cashBalance) {
+        return res.status(400).json({
+          error: `Kemaskini ditolak: Amaun perbelanjaan tunai (RM ${numAmount.toFixed(2)}) melebihi baki tunai yang ada (RM ${Math.max(0, cashBalance).toFixed(2)}).`
+        });
+      }
+
+      if (!isSpendingCash && numAmount > onlineBalance) {
+        return res.status(400).json({
+          error: `Kemaskini ditolak: Amaun perbelanjaan atas talian/bank (RM ${numAmount.toFixed(2)}) melebihi baki akaun bank yang ada (RM ${Math.max(0, onlineBalance).toFixed(2)}).`
+        });
+      }
+
+      if (numAmount > totalBalance) {
+        return res.status(400).json({
+          error: `Kemaskini ditolak: Amaun perbelanjaan melebihi jumlah baki keseluruhan masjid (RM ${Math.max(0, totalBalance).toFixed(2)}).`
+        });
+      }
+    } else if (type === 'income') {
+      const resultingCash = isSpendingCash ? cashBalance + numAmount : cashBalance;
+      const resultingOnline = !isSpendingCash ? onlineBalance + numAmount : onlineBalance;
+      const resultingTotal = totalBalance + numAmount;
+
+      if (resultingCash < 0 || resultingOnline < 0 || resultingTotal < 0) {
+        return res.status(400).json({
+          error: 'Kemaskini ditolak: Mengurangkan amaun kemasukan ini akan menyebabkan baki semasa menjadi negatif kerana wang telah dibelanjakan.'
+        });
+      }
+    }
+
+    const modifiedBy = req.user?.name || 'Sistem';
+
     await db.run(
       'UPDATE transactions SET account_code = ?, amount = ?, type = ?, description = ?, payment_method = ?, category = ?, receipt_url = ?, updated_by = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-      [account_code, amount, type, description, payment_method, category, receipt_url !== undefined ? receipt_url : transaction.receipt_url, modifiedBy, id]
+      [account_code, numAmount, type, description, payment_method, category, receipt_url !== undefined ? receipt_url : transaction.receipt_url, modifiedBy, id]
     );
     
     res.status(200).json({ success: true });
@@ -855,6 +960,21 @@ router.delete('/admin/finance/transactions/:id', verifyToken, verifyRole(['benda
   try {
     const db = await getDb();
     const { id } = req.params;
+    const tx = await db.get('SELECT * FROM transactions WHERE id = ?', [id]);
+    if (!tx) {
+      return res.status(404).json({ error: 'Transaksi tidak dijumpai.' });
+    }
+
+    // If deleting an income, check if remaining balance becomes negative
+    if (tx.type === 'income') {
+      const { cashBalance, onlineBalance, totalBalance } = await getAvailableBalances(db, id);
+      if (cashBalance < 0 || onlineBalance < 0 || totalBalance < 0) {
+        return res.status(400).json({
+          error: 'Transaksi kemasukan ini tidak boleh dipadam kerana sebahagian wang ini telah digunakan untuk perbelanjaan (akan menyebabkan baki menjadi negatif).'
+        });
+      }
+    }
+
     await db.run('DELETE FROM transactions WHERE id = ?', [id]);
     res.status(200).json({ success: true });
   } catch (err) {

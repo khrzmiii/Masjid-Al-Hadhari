@@ -346,9 +346,68 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
+  const isCashTransaction = (t: Partial<TransactionData>) => {
+    const pm = (t.payment_method || '').trim().toLowerCase();
+    if (pm === 'tunai' || pm === 'cash' || pm.includes('tunai') || pm.includes('cash')) return true;
+    if (t.account_code === 'TUNAI' && !pm.includes('talian')) return true;
+    return false;
+  };
+
+  const isOnlineTransaction = (t: Partial<TransactionData>) => {
+    const pm = (t.payment_method || '').trim().toLowerCase();
+    if (pm === 'atas talian' || pm === 'online' || pm === 'cek' || pm.includes('talian') || pm.includes('transfer') || pm.includes('qr') || pm.includes('bank')) return true;
+    if (t.account_code === 'BANK' && !isCashTransaction(t)) return true;
+    return !isCashTransaction(t);
+  };
+
   const handleCreateTransaction = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const numAmount = Number(newTransaction.amount);
+      if (isNaN(numAmount) || numAmount <= 0) {
+        alert('Sila masukkan amaun transaksi yang sah (lebih daripada RM 0.00).');
+        return;
+      }
+
+      // Pre-check for expense: ensure masjid has sufficient balance
+      if (newTransaction.type === 'expense') {
+        const remainingTxs = editingTransactionId
+          ? transactionsList.filter(t => t.id !== editingTransactionId)
+          : transactionsList;
+
+        const availCash = remainingTxs
+          .filter(t => t.type === 'income' && isCashTransaction(t))
+          .reduce((sum, t) => sum + Number(t.amount || 0), 0) -
+          remainingTxs
+          .filter(t => t.type === 'expense' && isCashTransaction(t))
+          .reduce((sum, t) => sum + Number(t.amount || 0), 0);
+
+        const availOnline = remainingTxs
+          .filter(t => t.type === 'income' && isOnlineTransaction(t))
+          .reduce((sum, t) => sum + Number(t.amount || 0), 0) -
+          remainingTxs
+          .filter(t => t.type === 'expense' && isOnlineTransaction(t))
+          .reduce((sum, t) => sum + Number(t.amount || 0), 0);
+
+        const availTotal = availCash + availOnline;
+        const isSpendingCash = isCashTransaction(newTransaction);
+
+        if (isSpendingCash && numAmount > availCash) {
+          alert(`Transaksi Ditolak!\n\nAmaun perbelanjaan tunai (RM ${numAmount.toFixed(2)}) melebihi baki tunai semasa yang ada (RM ${Math.max(0, availCash).toFixed(2)}).\n\nSila pastikan baki tunai mencukupi sebelum merekod perbelanjaan.`);
+          return;
+        }
+
+        if (!isSpendingCash && numAmount > availOnline) {
+          alert(`Transaksi Ditolak!\n\nAmaun perbelanjaan bank/atas talian (RM ${numAmount.toFixed(2)}) melebihi baki bank semasa yang ada (RM ${Math.max(0, availOnline).toFixed(2)}).\n\nSila pastikan baki bank mencukupi sebelum merekod perbelanjaan.`);
+          return;
+        }
+
+        if (numAmount > availTotal) {
+          alert(`Transaksi Ditolak!\n\nAmaun perbelanjaan (RM ${numAmount.toFixed(2)}) melebihi jumlah baki keseluruhan tabung masjid (RM ${Math.max(0, availTotal).toFixed(2)}).`);
+          return;
+        }
+      }
+
       let finalReceiptUrl = newTransaction.receipt_url;
 
       if (receiptFile) {
@@ -378,13 +437,18 @@ const AdminDashboard: React.FC = () => {
       const response = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ ...newTransaction, receipt_url: finalReceiptUrl })
+        body: JSON.stringify({ ...newTransaction, amount: numAmount, receipt_url: finalReceiptUrl })
       });
+
       if (response.ok) {
         fetchFinanceData();
         setNewTransaction({ account_code: '', amount: 0, type: 'income', description: '', payment_method: 'Atas Talian', category: 'Lain-lain' });
         setEditingTransactionId(null);
         setReceiptFile(null);
+        alert(editingTransactionId ? 'Transaksi berjaya dikemaskini.' : 'Transaksi berjaya ditambah.');
+      } else {
+        const errData = await response.json().catch(() => null);
+        alert(errData?.error || 'Gagal menyimpan transaksi.');
       }
     } catch (err) {
       alert('Ralat pelayan.');
@@ -413,7 +477,13 @@ const AdminDashboard: React.FC = () => {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      if (response.ok) fetchFinanceData();
+      if (response.ok) {
+        fetchFinanceData();
+        alert('Transaksi berjaya dipadam.');
+      } else {
+        const errData = await response.json().catch(() => null);
+        alert(errData?.error || 'Gagal memadam transaksi.');
+      }
     } catch (err) {
       alert('Ralat pelayan.');
     }
@@ -779,19 +849,7 @@ const AdminDashboard: React.FC = () => {
     return true;
   });
 
-  const isCashTransaction = (t: TransactionData) => {
-    const pm = (t.payment_method || '').trim().toLowerCase();
-    if (pm === 'tunai' || pm === 'cash' || pm.includes('tunai') || pm.includes('cash')) return true;
-    if (t.account_code === 'TUNAI' && !pm.includes('talian')) return true;
-    return false;
-  };
 
-  const isOnlineTransaction = (t: TransactionData) => {
-    const pm = (t.payment_method || '').trim().toLowerCase();
-    if (pm === 'atas talian' || pm === 'online' || pm === 'cek' || pm.includes('talian') || pm.includes('transfer') || pm.includes('qr') || pm.includes('bank')) return true;
-    if (t.account_code === 'BANK' && !isCashTransaction(t)) return true;
-    return !isCashTransaction(t);
-  };
 
   const cashIncome = transactionsList.filter(t => t.type === 'income' && isCashTransaction(t)).reduce((sum, t) => sum + Number(t.amount || 0), 0);
   const cashExpense = transactionsList.filter(t => t.type === 'expense' && isCashTransaction(t)).reduce((sum, t) => sum + Number(t.amount || 0), 0);
