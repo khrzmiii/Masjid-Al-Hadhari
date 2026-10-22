@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { UserPlus, Mail, Lock, User, ArrowLeft, CheckCircle } from 'lucide-react';
+import { UserPlus, Mail, Lock, User, ArrowLeft, CheckCircle, Phone } from 'lucide-react';
 import { GoogleLogin } from '@react-oauth/google';
 import './Login.css'; // Reusing login styles for consistency
 
@@ -8,6 +8,7 @@ const Register: React.FC = () => {
   const navigate = useNavigate();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -22,7 +23,7 @@ const Register: React.FC = () => {
       const response = await fetch('/api/v1/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password })
+        body: JSON.stringify({ name, email, password, phone_number: phoneNumber })
       });
 
       const data = await response.json();
@@ -167,6 +168,19 @@ const Register: React.FC = () => {
                 onChange={(e) => setEmail(e.target.value)} 
                 required 
                 placeholder="ali@example.com"
+              />
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label>No. Telefon (Pilihan)</label>
+            <div className="input-with-icon">
+              <Phone size={18} className="input-icon" />
+              <input 
+                type="tel" 
+                value={phoneNumber} 
+                onChange={(e) => setPhoneNumber(e.target.value)} 
+                placeholder="Contoh: 0123456789"
               />
             </div>
           </div>

@@ -198,7 +198,7 @@ const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
 router.post('/auth/register', async (req: Request, res: Response) => {
   try {
     const db = await getDb();
-    const { name, email, password } = req.body;
+    const { name, email, password, phone_number } = req.body;
     if (!name || !email || !password) return res.status(400).json({ error: 'Sila lengkapkan semua maklumat.' });
     const existingUser = await db.get('SELECT * FROM users WHERE email = ?', [email]);
     if (existingUser) return res.status(400).json({ error: 'Emel ini telah didaftarkan.' });
@@ -206,8 +206,8 @@ router.post('/auth/register', async (req: Request, res: Response) => {
     const id = randomUUID();
     const verificationToken = randomBytes(32).toString('hex');
     await db.run(
-      'INSERT INTO users (id, name, email, password_hash, role, auth_provider, email_verified, verification_token) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [id, name, email, hash, 'public', 'local', false, verificationToken]
+      'INSERT INTO users (id, name, email, password_hash, role, auth_provider, email_verified, verification_token, phone_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [id, name, email, hash, 'public', 'local', false, verificationToken, phone_number ? phone_number.trim() : null]
     );
     const baseUrl = process.env.APP_URL || 'https://masjid-al-hadhari.onrender.com';
     const verificationLink = `${baseUrl}/verify-email?token=${verificationToken}`;
@@ -559,9 +559,9 @@ router.get('/admin/users', verifyToken, verifyRole(['super_admin', 'pengerusi', 
     const db = await getDb();
     let rows;
     if (req.user?.role === 'super_admin') {
-      rows = await db.all('SELECT id, name, email, role, created_at FROM users ORDER BY created_at DESC');
+      rows = await db.all('SELECT id, name, email, phone_number, avatar_url, role, auth_provider, email_verified, created_at FROM users ORDER BY created_at DESC');
     } else {
-      rows = await db.all("SELECT id, name, email, role, created_at FROM users WHERE role != 'super_admin' ORDER BY created_at DESC");
+      rows = await db.all("SELECT id, name, email, phone_number, avatar_url, role, auth_provider, email_verified, created_at FROM users WHERE role != 'super_admin' ORDER BY created_at DESC");
     }
     res.status(200).json({ data: rows });
   } catch (err) {
@@ -569,6 +569,53 @@ router.get('/admin/users', verifyToken, verifyRole(['super_admin', 'pengerusi', 
   }
 });
 
+
+// Admin get user details + joined events
+router.get('/admin/users/:id/events', verifyToken, verifyRole(['super_admin', 'pengerusi', 'timbalan_pengerusi', 'setiausaha', 'penolong_setiausaha', 'bendahari', 'penolong_bendahari', 'ajk_peralatan']), async (req: AuthRequest, res: Response) => {
+  try {
+    const db = await getDb();
+    const rows = await db.all(`
+      SELECT e.id, e.title, e.description, e.image_url, e.event_date, e.venue, e.status, e.has_certificate, ep.created_at as joined_at
+      FROM event_participants ep
+      JOIN events e ON ep.event_id = e.id
+      WHERE ep.user_id = ?
+      ORDER BY e.event_date DESC
+    `, [req.params.id]);
+    res.status(200).json({ success: true, data: rows || [] });
+  } catch (err) {
+    res.status(500).json({ error: 'Ralat pelayan.' });
+  }
+});
+
+// Update user details (e.g. phone number, name)
+router.put('/admin/users/:id', verifyToken, verifyRole(['pengerusi']), async (req: AuthRequest, res: Response) => {
+  try {
+    const db = await getDb();
+    const { name, phone_number } = req.body;
+    const { id } = req.params;
+
+    const targetUser = await db.get('SELECT * FROM users WHERE id = ?', [id]);
+    if (!targetUser) {
+      return res.status(404).json({ error: 'Pengguna tidak dijumpai.' });
+    }
+
+    if (targetUser.role === 'super_admin' && req.user?.role !== 'super_admin') {
+      return res.status(403).json({ error: 'Anda tidak boleh mengubah maklumat Super Admin.' });
+    }
+
+    const cleanPhone = phone_number !== undefined ? (phone_number ? phone_number.trim() : null) : targetUser.phone_number;
+    const cleanName = name ? name.trim() : targetUser.name;
+
+    await db.run(
+      'UPDATE users SET name = ?, phone_number = ? WHERE id = ?',
+      [cleanName, cleanPhone, id]
+    );
+
+    res.status(200).json({ success: true, message: 'Maklumat pengguna berjaya dikemaskini.' });
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+  }
+});
 
 // Update user role
 router.put('/admin/users/:id/role', verifyToken, verifyRole(['pengerusi']), async (req: AuthRequest, res: Response) => {
@@ -602,7 +649,7 @@ router.put('/admin/users/:id/role', verifyToken, verifyRole(['pengerusi']), asyn
 router.post('/admin/users', verifyToken, verifyRole(['pengerusi']), async (req: AuthRequest, res: Response) => {
   try {
     const db = await getDb();
-    const { name, email, password, role } = req.body;
+    const { name, email, password, role, phone_number } = req.body;
     
     if (!name || !email || !password || !role) {
       return res.status(400).json({ error: 'Sila lengkapkan semua maklumat.' });
@@ -621,8 +668,8 @@ router.post('/admin/users', verifyToken, verifyRole(['pengerusi']), async (req: 
     const id = randomUUID();
     
     await db.run(
-      'INSERT INTO users (id, name, email, password_hash, role) VALUES (?, ?, ?, ?, ?)',
-      [id, name, email, hash, role]
+      'INSERT INTO users (id, name, email, password_hash, role, phone_number, email_verified) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [id, name, email, hash, role, phone_number ? phone_number.trim() : null, true]
     );
 
     res.status(201).json({ success: true });

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, Users, Calendar as CalendarIcon, Settings, Home, Menu, X, Wallet, Package, TrendingUp, TrendingDown, DollarSign, Trash2, FileText, Banknote, CreditCard, Layers } from 'lucide-react';
+import { LogOut, Users, Calendar as CalendarIcon, Settings, Home, Menu, X, Wallet, Package, TrendingUp, TrendingDown, DollarSign, Trash2, FileText, Banknote, CreditCard, Layers, Phone, Edit2, Check, User, Eye, Award, CheckCircle, Mail } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import './AdminDashboard.css';
@@ -9,6 +9,10 @@ interface UserData {
   id: string;
   name: string;
   email: string;
+  phone_number?: string;
+  avatar_url?: string;
+  auth_provider?: string;
+  email_verified?: boolean;
   role: string;
   created_at: string;
 }
@@ -86,8 +90,14 @@ const AdminDashboard: React.FC = () => {
     return 'settings';
   });
   const [usersList, setUsersList] = useState<UserData[]>([]);
-  const [newUserForm, setNewUserForm] = useState({ name: '', email: '', password: '', role: 'public' });
+  const [newUserForm, setNewUserForm] = useState({ name: '', email: '', phone_number: '', password: '', role: 'public' });
   const [isAddingUser, setIsAddingUser] = useState(false);
+  const [editingPhoneUserId, setEditingPhoneUserId] = useState<string | null>(null);
+  const [editPhoneValue, setEditPhoneValue] = useState<string>('');
+  const [savingPhone, setSavingPhone] = useState(false);
+  const [selectedUserForDetails, setSelectedUserForDetails] = useState<UserData | null>(null);
+  const [selectedUserEvents, setSelectedUserEvents] = useState<any[]>([]);
+  const [loadingUserEvents, setLoadingUserEvents] = useState(false);
   const [eventsList, setEventsList] = useState<EventData[]>([]);
   
   const [transactionsList, setTransactionsList] = useState<TransactionData[]>([]);
@@ -181,6 +191,25 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
+  const handleOpenUserDetails = async (u: UserData) => {
+    setSelectedUserForDetails(u);
+    setSelectedUserEvents([]);
+    setLoadingUserEvents(true);
+    try {
+      const response = await fetch(`/api/v1/admin/users/${u.id}/events`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const json = await response.json();
+        setSelectedUserEvents(json.data || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch user events', err);
+    } finally {
+      setLoadingUserEvents(false);
+    }
+  };
+
   const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -195,7 +224,7 @@ const AdminDashboard: React.FC = () => {
       if (response.ok) {
         alert('Pengguna berjaya ditambah.');
         setIsAddingUser(false);
-        setNewUserForm({ name: '', email: '', password: '', role: 'public' });
+        setNewUserForm({ name: '', email: '', phone_number: '', password: '', role: 'public' });
         fetchUsers();
       } else {
         const err = await response.json();
@@ -203,6 +232,31 @@ const AdminDashboard: React.FC = () => {
       }
     } catch (err) {
       alert('Ralat pelayan.');
+    }
+  };
+
+  const handleSavePhone = async (id: string) => {
+    setSavingPhone(true);
+    try {
+      const response = await fetch(`/api/v1/admin/users/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ phone_number: editPhoneValue })
+      });
+      if (response.ok) {
+        setEditingPhoneUserId(null);
+        fetchUsers();
+      } else {
+        const err = await response.json();
+        alert(err.error || 'Gagal mengemas kini nombor telefon.');
+      }
+    } catch (err) {
+      alert('Ralat pelayan.');
+    } finally {
+      setSavingPhone(false);
     }
   };
 
@@ -1030,10 +1084,14 @@ const AdminDashboard: React.FC = () => {
                       <input required type="email" value={newUserForm.email} onChange={e => setNewUserForm({...newUserForm, email: e.target.value})} className="form-input" style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1' }} />
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                      <label style={{ fontSize: '0.9rem', fontWeight: '600', color: '#475569' }}>No. Telefon</label>
+                      <input type="tel" placeholder="Contoh: 0123456789" value={newUserForm.phone_number} onChange={e => setNewUserForm({...newUserForm, phone_number: e.target.value})} className="form-input" style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1' }} />
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                       <label style={{ fontSize: '0.9rem', fontWeight: '600', color: '#475569' }}>Kata Laluan</label>
                       <input required type="password" value={newUserForm.password} onChange={e => setNewUserForm({...newUserForm, password: e.target.value})} className="form-input" style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1' }} />
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', gridColumn: '1 / -1' }}>
                       <label style={{ fontSize: '0.9rem', fontWeight: '600', color: '#475569' }}>Peranan</label>
                       <select value={newUserForm.role} onChange={e => setNewUserForm({...newUserForm, role: e.target.value})} className="form-input" style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: 'white' }}>
                         {renderRoleOptions()}
@@ -1065,8 +1123,9 @@ const AdminDashboard: React.FC = () => {
                     <table className="data-table" style={{ margin: 0, width: '100%', borderCollapse: 'collapse' }}>
                       <thead style={{ backgroundColor: '#f8fafc' }}>
                         <tr>
-                          <th style={{ padding: '1rem', textAlign: 'left', color: '#475569', fontWeight: '600', borderBottom: '2px solid #e2e8f0' }}>Nama</th>
-                          <th style={{ padding: '1rem', textAlign: 'left', color: '#475569', fontWeight: '600', borderBottom: '2px solid #e2e8f0' }}>Emel</th>
+                          <th style={{ padding: '1rem', textAlign: 'left', color: '#475569', fontWeight: '600', borderBottom: '2px solid #e2e8f0' }}>Pengguna</th>
+                          <th style={{ padding: '1rem', textAlign: 'left', color: '#475569', fontWeight: '600', borderBottom: '2px solid #e2e8f0' }}>Emel & Status</th>
+                          <th style={{ padding: '1rem', textAlign: 'left', color: '#475569', fontWeight: '600', borderBottom: '2px solid #e2e8f0' }}>No. Telefon</th>
                           <th style={{ padding: '1rem', textAlign: 'left', color: '#475569', fontWeight: '600', borderBottom: '2px solid #e2e8f0' }}>Tarikh Daftar</th>
                           <th style={{ padding: '1rem', textAlign: 'left', color: '#475569', fontWeight: '600', borderBottom: '2px solid #e2e8f0' }}>Peranan & Tindakan</th>
                         </tr>
@@ -1074,39 +1133,355 @@ const AdminDashboard: React.FC = () => {
                       <tbody>
                         {usersList.map((u, index) => (
                           <tr key={u.id} style={{ backgroundColor: index % 2 === 0 ? 'white' : '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
-                            <td style={{ padding: '1rem', fontWeight: '600', color: '#0f172a' }}>{u.name}</td>
-                            <td style={{ padding: '1rem', color: '#334155' }}>{u.email}</td>
+                            <td style={{ padding: '1rem' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+                                <div style={{ position: 'relative', flexShrink: 0 }}>
+                                  {u.avatar_url ? (
+                                    <img 
+                                      src={u.avatar_url} 
+                                      alt={u.name} 
+                                      style={{ width: '44px', height: '44px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #10b981', boxShadow: '0 2px 4px rgba(0,0,0,0.06)' }} 
+                                    />
+                                  ) : (
+                                    <div style={{ width: '44px', height: '44px', borderRadius: '50%', backgroundColor: '#ecfdf5', color: '#059669', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700', fontSize: '0.95rem', border: '2px solid #a7f3d0' }}>
+                                      {u.name ? u.name.split(' ').filter(Boolean).map(n => n[0]).slice(0, 2).join('').toUpperCase() : <User size={20} />}
+                                    </div>
+                                  )}
+                                  {u.auth_provider === 'google' && (
+                                    <span 
+                                      title="Akaun Google"
+                                      style={{ position: 'absolute', bottom: '-2px', right: '-2px', width: '16px', height: '16px', borderRadius: '50%', backgroundColor: '#ffffff', boxShadow: '0 1px 3px rgba(0,0,0,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px' }}
+                                    >
+                                      🌐
+                                    </span>
+                                  )}
+                                </div>
+                                <div>
+                                  <div 
+                                    onClick={() => handleOpenUserDetails(u)}
+                                    style={{ fontWeight: '700', color: '#0f172a', fontSize: '0.95rem', cursor: 'pointer', transition: 'color 0.2s' }}
+                                    title="Klik untuk maklumat lengkap"
+                                    onMouseEnter={(e) => e.currentTarget.style.color = '#059669'}
+                                    onMouseLeave={(e) => e.currentTarget.style.color = '#0f172a'}
+                                  >
+                                    {u.name}
+                                  </div>
+                                  <div style={{ display: 'flex', gap: '0.35rem', marginTop: '0.2rem', alignItems: 'center' }}>
+                                    <button
+                                      onClick={() => handleOpenUserDetails(u)}
+                                      style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', color: '#059669', fontSize: '0.75rem', fontWeight: '600', padding: '0.15rem 0.5rem', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem', transition: 'all 0.2s' }}
+                                      onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#ecfdf5'; e.currentTarget.style.borderColor = '#a7f3d0'; }}
+                                      onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#f1f5f9'; e.currentTarget.style.borderColor = '#e2e8f0'; }}
+                                    >
+                                      <Eye size={12} />
+                                      <span>Maklumat Lengkap</span>
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+                            <td style={{ padding: '1rem', color: '#334155' }}>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                                <span style={{ fontWeight: '500', color: '#0f172a' }}>{u.email}</span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.75rem' }}>
+                                  {u.email_verified ? (
+                                    <span style={{ color: '#16a34a', display: 'flex', alignItems: 'center', gap: '0.2rem', fontWeight: '600' }}>
+                                      <CheckCircle size={12} /> Disahkan
+                                    </span>
+                                  ) : (
+                                    <span style={{ color: '#ca8a04', fontWeight: '500' }}>
+                                      Belum Disahkan
+                                    </span>
+                                  )}
+                                  <span style={{ color: '#cbd5e1' }}>•</span>
+                                  <span style={{ color: '#64748b' }}>
+                                    {u.auth_provider === 'google' ? 'Google' : 'Emel Biasa'}
+                                  </span>
+                                </div>
+                              </div>
+                            </td>
+                            <td style={{ padding: '1rem', color: '#334155' }}>
+                              {editingPhoneUserId === u.id ? (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                  <input
+                                    type="tel"
+                                    value={editPhoneValue}
+                                    onChange={(e) => setEditPhoneValue(e.target.value)}
+                                    placeholder="0123456789"
+                                    style={{ padding: '0.4rem 0.6rem', borderRadius: '6px', border: '1px solid #059669', fontSize: '0.875rem', width: '130px', outline: 'none' }}
+                                    autoFocus
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') handleSavePhone(u.id);
+                                      if (e.key === 'Escape') setEditingPhoneUserId(null);
+                                    }}
+                                  />
+                                  <button 
+                                    onClick={() => handleSavePhone(u.id)}
+                                    disabled={savingPhone}
+                                    style={{ background: '#059669', color: 'white', border: 'none', borderRadius: '6px', padding: '0.4rem', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                                    title="Simpan"
+                                  >
+                                    <Check size={14} />
+                                  </button>
+                                  <button 
+                                    onClick={() => setEditingPhoneUserId(null)}
+                                    style={{ background: '#e2e8f0', color: '#475569', border: 'none', borderRadius: '6px', padding: '0.4rem', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                                    title="Batal"
+                                  >
+                                    <X size={14} />
+                                  </button>
+                                </div>
+                              ) : (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                  {u.phone_number ? (
+                                    <a 
+                                      href={`https://wa.me/6${u.phone_number.replace(/^(+?60|0)/, '')}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      style={{ color: '#059669', textDecoration: 'none', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+                                      title="Buka WhatsApp / Panggil"
+                                    >
+                                      <Phone size={14} />
+                                      <span>{u.phone_number}</span>
+                                    </a>
+                                  ) : (
+                                    <span style={{ color: '#94a3b8', fontStyle: 'italic', fontSize: '0.85rem' }}>Tiada</span>
+                                  )}
+                                  {(user?.role === 'super_admin' || user?.role === 'pengerusi') && (
+                                    <button
+                                      onClick={() => {
+                                        setEditingPhoneUserId(u.id);
+                                        setEditPhoneValue(u.phone_number || '');
+                                      }}
+                                      style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', borderRadius: '4px' }}
+                                      title={u.phone_number ? "Kemas kini nombor telefon" : "Tambah nombor telefon"}
+                                      onMouseEnter={(e) => e.currentTarget.style.color = 'var(--color-primary)'}
+                                      onMouseLeave={(e) => e.currentTarget.style.color = '#94a3b8'}
+                                    >
+                                      <Edit2 size={13} />
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </td>
                             <td style={{ padding: '1rem', color: '#64748b' }}>{new Date(u.created_at).toLocaleDateString('ms-MY')}</td>
                             <td style={{ padding: '1rem' }}>
-                              {u.name === user?.name ? (
-                                <span className="badge" style={{ backgroundColor: '#e2e8f0', color: '#475569', padding: '0.4rem 0.8rem', borderRadius: '20px', fontSize: '0.8rem', fontWeight: '600' }}>
-                                  {u.role.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())} (Anda)
-                                </span>
-                              ) : u.role === 'super_admin' ? (
-                                <span className="badge" style={{ backgroundColor: '#fef08a', color: '#854d0e', padding: '0.4rem 0.8rem', borderRadius: '20px', fontSize: '0.8rem', fontWeight: '600' }}>Super Admin</span>
-                              ) : (
-                                <select 
-                                  value={u.role}
-                                  onChange={(e) => handleRoleUpdate(u.id, e.target.value)}
-                                  style={{ padding: '0.6rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: 'white', color: '#0f172a', fontWeight: '500', outline: 'none' }}
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                {u.name === user?.name ? (
+                                  <span className="badge" style={{ backgroundColor: '#e2e8f0', color: '#475569', padding: '0.4rem 0.8rem', borderRadius: '20px', fontSize: '0.8rem', fontWeight: '600' }}>
+                                    {u.role.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())} (Anda)
+                                  </span>
+                                ) : u.role === 'super_admin' ? (
+                                  <span className="badge" style={{ backgroundColor: '#fef08a', color: '#854d0e', padding: '0.4rem 0.8rem', borderRadius: '20px', fontSize: '0.8rem', fontWeight: '600' }}>Super Admin</span>
+                                ) : (
+                                  <select 
+                                    value={u.role}
+                                    onChange={(e) => handleRoleUpdate(u.id, e.target.value)}
+                                    style={{ padding: '0.6rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: 'white', color: '#0f172a', fontWeight: '500', outline: 'none' }}
+                                  >
+                                    {renderRoleOptions(u.role)}
+                                  </select>
+                                )}
+                                <button
+                                  onClick={() => handleOpenUserDetails(u)}
+                                  style={{ padding: '0.5rem', backgroundColor: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                  title="Lihat Maklumat Penuh"
                                 >
-                                  {renderRoleOptions(u.role)}
-                                </select>
-                              )}
-                              {u.name !== user?.name && (
-                                <button 
-                                  onClick={() => handleDeleteUser(u.id, u.name)}
-                                  style={{ marginLeft: '1rem', padding: '0.5rem', backgroundColor: '#fee2e2', color: '#ef4444', border: 'none', borderRadius: '8px', cursor: 'pointer', verticalAlign: 'middle', transition: 'all 0.2s' }}
-                                  title="Padam Pengguna"
-                                >
-                                  <Trash2 size={18} />
+                                  <Eye size={16} />
                                 </button>
-                              )}
+                                {u.name !== user?.name && (
+                                  <button 
+                                    onClick={() => handleDeleteUser(u.id, u.name)}
+                                    style={{ padding: '0.5rem', backgroundColor: '#fee2e2', color: '#ef4444', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}
+                                    title="Padam Pengguna"
+                                  >
+                                    <Trash2 size={16} />
+                                  </button>
+                                )}
+                              </div>
                             </td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Modal Maklumat Lengkap Pengguna */}
+              {selectedUserForDetails && (
+                <div style={{
+                  position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                  backgroundColor: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  zIndex: 9999, padding: '1rem'
+                }}>
+                  <div style={{
+                    backgroundColor: 'white', borderRadius: '16px', maxWidth: '650px', width: '100%',
+                    maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+                    border: '1px solid #e2e8f0'
+                  }}>
+                    {/* Header */}
+                    <div style={{
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                      padding: '1.25rem 1.75rem', borderBottom: '1px solid #f1f5f9',
+                      backgroundColor: '#f8fafc', borderTopLeftRadius: '16px', borderTopRightRadius: '16px'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                        <div style={{ background: '#ecfdf5', padding: '0.5rem', borderRadius: '10px' }}>
+                          <Users size={20} color="#059669" />
+                        </div>
+                        <h3 style={{ margin: 0, color: '#0f172a', fontSize: '1.25rem', fontWeight: '700' }}>
+                          Maklumat Lengkap Pengguna
+                        </h3>
+                      </div>
+                      <button
+                        onClick={() => setSelectedUserForDetails(null)}
+                        style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', padding: '0.4rem', borderRadius: '6px', display: 'flex', alignItems: 'center' }}
+                      >
+                        <X size={20} />
+                      </button>
+                    </div>
+
+                    {/* Body */}
+                    <div style={{ padding: '1.75rem' }}>
+                      {/* Profile Card Header */}
+                      <div style={{
+                        display: 'flex', alignItems: 'center', gap: '1.5rem', padding: '1.5rem',
+                        backgroundColor: '#f0fdf4', borderRadius: '14px', border: '1px solid #bbf7d0',
+                        marginBottom: '1.5rem'
+                      }}>
+                        {selectedUserForDetails.avatar_url ? (
+                          <img
+                            src={selectedUserForDetails.avatar_url}
+                            alt={selectedUserForDetails.name}
+                            style={{
+                              width: '84px', height: '84px', borderRadius: '50%', objectFit: 'cover',
+                              border: '3px solid #059669', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', flexShrink: 0
+                            }}
+                          />
+                        ) : (
+                          <div style={{
+                            width: '84px', height: '84px', borderRadius: '50%',
+                            backgroundColor: '#dcfce7', color: '#059669', display: 'flex',
+                            alignItems: 'center', justifyContent: 'center', fontWeight: '800',
+                            fontSize: '1.8rem', border: '3px solid #86efac', flexShrink: 0
+                          }}>
+                            {selectedUserForDetails.name ? selectedUserForDetails.name.split(' ').filter(Boolean).map(n => n[0]).slice(0, 2).join('').toUpperCase() : <User size={40} />}
+                          </div>
+                        )}
+                        <div>
+                          <h4 style={{ margin: 0, color: '#0f172a', fontSize: '1.35rem', fontWeight: '700' }}>
+                            {selectedUserForDetails.name}
+                          </h4>
+                          <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
+                            <span className="badge" style={{ backgroundColor: '#059669', color: 'white', padding: '0.25rem 0.75rem', borderRadius: '20px', fontSize: '0.8rem', fontWeight: '600' }}>
+                              {selectedUserForDetails.role.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                            </span>
+                            <span style={{ backgroundColor: '#e0f2fe', color: '#0369a1', padding: '0.25rem 0.75rem', borderRadius: '20px', fontSize: '0.8rem', fontWeight: '600' }}>
+                              {selectedUserForDetails.auth_provider === 'google' ? 'Google Auth' : 'Akaun Emel Tempatan'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Info Grid */}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+                        <div style={{ padding: '1rem', backgroundColor: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                          <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: '700', display: 'block', marginBottom: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>ALAMAT EMEL</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#0f172a', fontWeight: '600', fontSize: '0.95rem', wordBreak: 'break-all' }}>
+                            <Mail size={16} color="#059669" />
+                            <span>{selectedUserForDetails.email}</span>
+                          </div>
+                          <span style={{ fontSize: '0.75rem', color: selectedUserForDetails.email_verified ? '#16a34a' : '#ca8a04', marginTop: '0.35rem', display: 'flex', alignItems: 'center', gap: '0.25rem', fontWeight: '600' }}>
+                            {selectedUserForDetails.email_verified ? '✓ Emel Disahkan' : '⚠ Emel Belum Disahkan'}
+                          </span>
+                        </div>
+
+                        <div style={{ padding: '1rem', backgroundColor: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                          <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: '700', display: 'block', marginBottom: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>NOMBOR TELEFON</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#0f172a', fontWeight: '600', fontSize: '0.95rem' }}>
+                            <Phone size={16} color="#059669" />
+                            <span>{selectedUserForDetails.phone_number || 'Belum diisi'}</span>
+                          </div>
+                          {selectedUserForDetails.phone_number && (
+                            <a
+                              href={`https://wa.me/6${selectedUserForDetails.phone_number.replace(/^(+?60|0)/, '')}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{ fontSize: '0.75rem', color: '#059669', textDecoration: 'none', fontWeight: '600', marginTop: '0.35rem', display: 'inline-block' }}
+                            >
+                              💬 Buka WhatsApp
+                            </a>
+                          )}
+                        </div>
+
+                        <div style={{ padding: '1rem', backgroundColor: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                          <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: '700', display: 'block', marginBottom: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>TARIKH DAFTAR</span>
+                          <div style={{ color: '#0f172a', fontWeight: '600', fontSize: '0.95rem' }}>
+                            {new Date(selectedUserForDetails.created_at).toLocaleDateString('ms-MY', { day: '2-digit', month: 'long', year: 'numeric' })}
+                          </div>
+                          <span style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.25rem', display: 'block' }}>
+                            {new Date(selectedUserForDetails.created_at).toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+
+                        <div style={{ padding: '1rem', backgroundColor: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                          <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: '700', display: 'block', marginBottom: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>ID PENGGUNA</span>
+                          <div style={{ color: '#64748b', fontSize: '0.75rem', fontFamily: 'monospace', wordBreak: 'break-all' }}>
+                            {selectedUserForDetails.id}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* User Activities Section */}
+                      <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '1.5rem' }}>
+                        <h4 style={{ margin: '0 0 1rem 0', color: '#0f172a', fontSize: '1.05rem', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <Award size={18} color="#059669" />
+                          <span>Aktiviti / Program Yang Disertai ({selectedUserEvents.length})</span>
+                        </h4>
+
+                        {loadingUserEvents ? (
+                          <p style={{ color: '#64748b', fontSize: '0.9rem', textAlign: 'center', padding: '1rem' }}>Memuatkan aktiviti...</p>
+                        ) : selectedUserEvents.length > 0 ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxHeight: '220px', overflowY: 'auto' }}>
+                            {selectedUserEvents.map(evt => (
+                              <div key={evt.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1rem', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                                <div>
+                                  <div style={{ fontWeight: '600', color: '#0f172a', fontSize: '0.9rem' }}>{evt.title}</div>
+                                  <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
+                                    {new Date(evt.event_date).toLocaleDateString('ms-MY')} {evt.venue ? `• ${evt.venue}` : ''}
+                                  </div>
+                                </div>
+                                {evt.has_certificate ? (
+                                  <span style={{ backgroundColor: '#dcfce7', color: '#166534', padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: '600' }}>
+                                    e-Sijil Tersedia
+                                  </span>
+                                ) : (
+                                  <span style={{ backgroundColor: '#f1f5f9', color: '#64748b', padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem' }}>
+                                    Disertai
+                                  </span>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p style={{ color: '#94a3b8', fontSize: '0.9rem', fontStyle: 'italic', padding: '0.5rem 0', margin: 0 }}>
+                            Pengguna ini belum pernah menyertai mana-mana aktiviti masjid.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Footer */}
+                    <div style={{ padding: '1rem 1.75rem', borderTop: '1px solid #f1f5f9', backgroundColor: '#f8fafc', display: 'flex', justifyContent: 'flex-end', borderBottomLeftRadius: '16px', borderBottomRightRadius: '16px' }}>
+                      <button
+                        onClick={() => setSelectedUserForDetails(null)}
+                        style={{ padding: '0.6rem 1.5rem', backgroundColor: '#059669', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer' }}
+                      >
+                        Tutup
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
