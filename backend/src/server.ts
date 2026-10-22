@@ -540,7 +540,7 @@ router.get('/user/events', verifyToken, async (req: AuthRequest, res: Response) 
   try {
     const db = await getDb();
     const rows = await db.all(`
-      SELECT e.id, e.title, e.description, e.image_url, e.event_date, e.venue, e.status, e.has_certificate, ep.created_at as joined_at
+      SELECT e.id, e.title, e.description, e.image_url, e.event_date, e.venue, e.status, e.has_certificate, e.certificate_template_url, e.certificate_name_y_percent, e.certificate_name_color, ep.created_at as joined_at
       FROM event_participants ep
       JOIN events e ON ep.event_id = e.id
       WHERE ep.user_id = ?
@@ -575,7 +575,7 @@ router.get('/admin/users/:id/events', verifyToken, verifyRole(['super_admin', 'p
   try {
     const db = await getDb();
     const rows = await db.all(`
-      SELECT e.id, e.title, e.description, e.image_url, e.event_date, e.venue, e.status, e.has_certificate, ep.created_at as joined_at
+      SELECT e.id, e.title, e.description, e.image_url, e.event_date, e.venue, e.status, e.has_certificate, e.certificate_template_url, e.certificate_name_y_percent, e.certificate_name_color, ep.created_at as joined_at
       FROM event_participants ep
       JOIN events e ON ep.event_id = e.id
       WHERE ep.user_id = ?
@@ -697,7 +697,7 @@ router.delete('/admin/users/:id', verifyToken, verifySuperAdmin, async (req: Aut
 router.post('/admin/events', verifyToken, verifyRole(['setiausaha', 'penolong_setiausaha', 'pengerusi', 'super_admin']), async (req: AuthRequest, res: Response) => {
   try {
     const db = await getDb();
-    const { title, description, image_url, event_date, venue } = req.body;
+    const { title, description, image_url, event_date, venue, has_certificate, certificate_template_url, certificate_name_y_percent, certificate_name_color } = req.body;
     
     if (!title || !event_date) {
       return res.status(400).json({ error: 'Tajuk dan tarikh diperlukan.' });
@@ -706,8 +706,20 @@ router.post('/admin/events', verifyToken, verifyRole(['setiausaha', 'penolong_se
     const id = randomUUID();
     const modifiedBy = req.user?.name || 'Sistem';
     await db.run(
-      'INSERT INTO events (id, title, description, image_url, event_date, venue, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [id, title, description || null, image_url || null, event_date, venue || null, modifiedBy]
+      'INSERT INTO events (id, title, description, image_url, event_date, venue, updated_by, has_certificate, certificate_template_url, certificate_name_y_percent, certificate_name_color) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [
+        id, 
+        title, 
+        description || null, 
+        image_url || null, 
+        event_date, 
+        venue || null, 
+        modifiedBy,
+        has_certificate === true || has_certificate === 'true',
+        certificate_template_url || null,
+        certificate_name_y_percent ? Number(certificate_name_y_percent) : 50,
+        certificate_name_color || '#1e293b'
+      ]
     );
 
     res.status(201).json({ success: true, id });
@@ -720,12 +732,25 @@ router.put('/admin/events/:id', verifyToken, verifyRole(['setiausaha', 'penolong
   try {
     const db = await getDb();
     const { id } = req.params;
-    const { title, description, image_url, event_date, venue, status } = req.body;
+    const { title, description, image_url, event_date, venue, status, has_certificate, certificate_template_url, certificate_name_y_percent, certificate_name_color } = req.body;
     const modifiedBy = req.user?.name || 'Sistem';
     
     await db.run(
-      'UPDATE events SET title = ?, description = ?, image_url = ?, event_date = ?, venue = ?, status = ?, updated_by = ? WHERE id = ?',
-      [title, description || null, image_url || null, event_date, venue || null, status || 'published', modifiedBy, id]
+      'UPDATE events SET title = ?, description = ?, image_url = ?, event_date = ?, venue = ?, status = ?, updated_by = ?, has_certificate = ?, certificate_template_url = ?, certificate_name_y_percent = ?, certificate_name_color = ? WHERE id = ?',
+      [
+        title, 
+        description || null, 
+        image_url || null, 
+        event_date, 
+        venue || null, 
+        status || 'published', 
+        modifiedBy,
+        has_certificate === true || has_certificate === 'true',
+        certificate_template_url || null,
+        certificate_name_y_percent ? Number(certificate_name_y_percent) : 50,
+        certificate_name_color || '#1e293b',
+        id
+      ]
     );
 
     res.status(200).json({ success: true });

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Calendar as CalendarIcon, MapPin, ArrowLeft, Share2 } from 'lucide-react';
+import { Calendar as CalendarIcon, MapPin, ArrowLeft, Share2, Award } from 'lucide-react';
 import Navbar from '../components/Navbar';
 
 interface EventData {
@@ -10,6 +10,8 @@ interface EventData {
   image_url: string;
   event_date: string;
   venue: string;
+  has_certificate?: boolean;
+  certificate_template_url?: string;
 }
 
 const ActivitiesPage: React.FC = () => {
@@ -150,6 +152,11 @@ const ActivitiesPage: React.FC = () => {
                           </div>
                         )}
                         <div style={{ padding: '1.5rem' }}>
+                          {ev.has_certificate && (
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', backgroundColor: '#dcfce7', color: '#166534', fontSize: '0.75rem', fontWeight: 'bold', padding: '0.2rem 0.6rem', borderRadius: '4px', marginBottom: '0.75rem' }}>
+                              <Award size={13} /> Bersijil (Ada E-Sijil)
+                            </div>
+                          )}
                           <h3 style={{ margin: '0 0 1rem 0', color: 'var(--color-primary)' }}>{ev.title}</h3>
                           <p style={{ color: '#475569', marginBottom: '1rem', lineHeight: 1.6, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{ev.description}</p>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#64748b', fontSize: '0.9rem', marginBottom: '0.5rem' }}>
@@ -185,6 +192,11 @@ const ActivitiesPage: React.FC = () => {
                           </div>
                         )}
                         <div style={{ padding: '1.5rem' }}>
+                          {ev.has_certificate && (
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', backgroundColor: '#dcfce7', color: '#166534', fontSize: '0.75rem', fontWeight: 'bold', padding: '0.2rem 0.6rem', borderRadius: '4px', marginBottom: '0.75rem' }}>
+                              <Award size={13} /> Bersijil (Ada E-Sijil)
+                            </div>
+                          )}
                           <h3 style={{ margin: '0 0 1rem 0', color: '#475569' }}>{ev.title}</h3>
                           <p style={{ color: '#64748b', marginBottom: '1rem', lineHeight: 1.6, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{ev.description}</p>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#94a3b8', fontSize: '0.9rem', marginBottom: '0.5rem' }}>
@@ -227,6 +239,13 @@ const ActivitiesPage: React.FC = () => {
                     </div>
                   )}
                 </div>
+
+                {selectedEvent.has_certificate && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: '#166534', backgroundColor: '#dcfce7', border: '1px solid #bbf7d0', padding: '0.75rem 1rem', borderRadius: '8px', fontWeight: '600', fontSize: '0.9rem', marginBottom: '1.25rem' }}>
+                    <Award size={20} color="#166534" />
+                    <span>Program ini menawarkan E-Sijil Penyertaan rasmi untuk semua peserta berdaftar. Anda boleh muat turun e-sijil di profil anda setelah menyertai.</span>
+                  </div>
+                )}
 
                 <div style={{ color: '#334155', lineHeight: 1.8, marginBottom: '2rem', whiteSpace: 'pre-wrap' }}>
                   {selectedEvent.description}

@@ -33,6 +33,10 @@ interface EventData {
   event_date: string;
   venue: string;
   updated_by?: string;
+  has_certificate?: boolean;
+  certificate_template_url?: string;
+  certificate_name_y_percent?: number;
+  certificate_name_color?: string;
 }
 
 interface TransactionData {
@@ -122,9 +126,12 @@ const AdminDashboard: React.FC = () => {
   const [loading, setLoading] = useState(false);
   
   const [newEvent, setNewEvent] = useState<EventData>({
-    title: '', description: '', image_url: '', event_date: '', venue: ''
+    title: '', description: '', image_url: '', event_date: '', venue: '',
+    has_certificate: false, certificate_template_url: '', certificate_name_y_percent: 50, certificate_name_color: '#1e293b'
   });
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
+  const [selectedCertTemplateFile, setSelectedCertTemplateFile] = useState<File | null>(null);
+  const [certPreviewModal, setCertPreviewModal] = useState<string | null>(null);
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
   
   const [isParticipantsModalOpen, setIsParticipantsModalOpen] = useState(false);
@@ -310,6 +317,29 @@ const AdminDashboard: React.FC = () => {
         }
       }
 
+      let finalCertTemplateUrl = newEvent.certificate_template_url || '';
+      if (selectedCertTemplateFile) {
+        const formData = new FormData();
+        formData.append('image', selectedCertTemplateFile);
+        
+        const uploadRes = await fetch('/api/v1/upload', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          },
+          body: formData
+        });
+        
+        if (uploadRes.ok) {
+          const uploadData = await uploadRes.json();
+          finalCertTemplateUrl = uploadData.url;
+        } else {
+          const errText = await uploadRes.text();
+          alert('Gagal memuat naik templat sijil. Ralat: ' + errText);
+          return;
+        }
+      }
+
       const url = editingEventId 
         ? `/api/v1/admin/events/${editingEventId}`
         : '/api/v1/admin/events';
@@ -326,12 +356,24 @@ const AdminDashboard: React.FC = () => {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ ...newEvent, image_url: finalImageUrl, event_date: isoEventDate })
+        body: JSON.stringify({ 
+          ...newEvent, 
+          image_url: finalImageUrl, 
+          has_certificate: !!newEvent.has_certificate,
+          certificate_template_url: finalCertTemplateUrl || null,
+          certificate_name_y_percent: newEvent.certificate_name_y_percent !== undefined ? Number(newEvent.certificate_name_y_percent) : 50,
+          certificate_name_color: newEvent.certificate_name_color || '#1e293b',
+          event_date: isoEventDate 
+        })
       });
       if (response.ok) {
         fetchAdminEvents();
-        setNewEvent({ title: '', description: '', image_url: '', event_date: '', venue: '' });
+        setNewEvent({ 
+          title: '', description: '', image_url: '', event_date: '', venue: '',
+          has_certificate: false, certificate_template_url: '', certificate_name_y_percent: 50, certificate_name_color: '#1e293b'
+        });
         setSelectedImageFile(null);
+        setSelectedCertTemplateFile(null);
         setEditingEventId(null);
         alert(editingEventId ? 'Aktiviti berjaya disunting.' : 'Aktiviti berjaya ditambah.');
       } else {
@@ -353,10 +395,65 @@ const AdminDashboard: React.FC = () => {
       localDateTime = `${dateObj.getFullYear()}-${pad(dateObj.getMonth() + 1)}-${pad(dateObj.getDate())}T${pad(dateObj.getHours())}:${pad(dateObj.getMinutes())}`;
     } catch (e) {}
     
-    setNewEvent({ ...ev, event_date: localDateTime });
+    setNewEvent({ 
+      ...ev, 
+      has_certificate: !!ev.has_certificate,
+      certificate_template_url: ev.certificate_template_url || '',
+      certificate_name_y_percent: ev.certificate_name_y_percent !== undefined ? Number(ev.certificate_name_y_percent) : 50,
+      certificate_name_color: ev.certificate_name_color || '#1e293b',
+      event_date: localDateTime 
+    });
     setEditingEventId(ev.id || null);
     setSelectedImageFile(null);
+    setSelectedCertTemplateFile(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleCancelEditEvent = () => {
+    setNewEvent({
+      title: '', description: '', image_url: '', event_date: '', venue: '',
+      has_certificate: false, certificate_template_url: '', certificate_name_y_percent: 50, certificate_name_color: '#1e293b'
+    });
+    setSelectedImageFile(null);
+    setSelectedCertTemplateFile(null);
+    setEditingEventId(null);
+  };
+
+  const handlePreviewCertificate = () => {
+    let templateSrc = newEvent.certificate_template_url;
+    if (selectedCertTemplateFile) {
+      templateSrc = URL.createObjectURL(selectedCertTemplateFile);
+    }
+    if (!templateSrc) {
+      alert('Sila pilih fail templat Canva atau gunakan aktiviti yang sudah ada templat tersimpan.');
+      return;
+    }
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.src = templateSrc;
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth || img.width;
+      canvas.height = img.naturalHeight || img.height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      
+      const sampleName = 'NAMA PESERTA CONTOH BIN ABDULLAH';
+      const yPercent = newEvent.certificate_name_y_percent !== undefined ? Number(newEvent.certificate_name_y_percent) : 50;
+      const nameY = canvas.height * (yPercent / 100);
+      const baseFontSize = Math.max(24, Math.round(canvas.width * 0.032));
+      ctx.font = `bold ${baseFontSize}px "Helvetica Neue", Helvetica, Arial, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = newEvent.certificate_name_color || '#1e293b';
+      ctx.fillText(sampleName, canvas.width / 2, nameY);
+
+      setCertPreviewModal(canvas.toDataURL('image/jpeg', 0.9));
+    };
+    img.onerror = () => {
+      alert('Gagal memuatkan imej templat. Sila pastikan fail adalah imej sah.');
+    };
   };
 
   const fetchParticipants = async (ev: EventData) => {
@@ -1501,7 +1598,14 @@ const AdminDashboard: React.FC = () => {
               {(canEditEvents) && (
                 <>
                   <div style={{ backgroundColor: 'white', padding: '2rem', borderRadius: '12px', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', marginBottom: '3rem' }}>
-                    <h3 style={{ marginTop: 0, marginBottom: '1.5rem', color: '#0f172a' }}>Tambah Aktiviti / Program Baru</h3>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                      <h3 style={{ margin: 0, color: '#0f172a' }}>{editingEventId ? 'Kemaskini Aktiviti' : 'Tambah Aktiviti / Program Baru'}</h3>
+                      {editingEventId && (
+                        <button type="button" onClick={handleCancelEditEvent} style={{ backgroundColor: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', padding: '0.4rem 0.8rem', borderRadius: '6px', cursor: 'pointer', fontWeight: '500' }}>
+                          Batal Suntingan
+                        </button>
+                      )}
+                    </div>
                     <form onSubmit={handleCreateEvent} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', gridColumn: '1 / -1' }}>
                         <label style={{ fontSize: '0.9rem', fontWeight: '600', color: '#475569' }}>Tajuk Aktiviti</label>
@@ -1520,14 +1624,124 @@ const AdminDashboard: React.FC = () => {
                         <input type="text" placeholder="Di mana aktiviti diadakan?" value={newEvent.venue} onChange={e => setNewEvent({...newEvent, venue: e.target.value})} className="form-input" style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1' }} />
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', gridColumn: '1 / -1' }}>
-                        <label style={{ fontSize: '0.9rem', fontWeight: '600', color: '#475569' }}>Muat Naik Gambar (Pilihan)</label>
+                        <label style={{ fontSize: '0.9rem', fontWeight: '600', color: '#475569' }}>Muat Naik Gambar Poster (Pilihan)</label>
                         <input type="file" accept="image/*" onChange={e => setSelectedImageFile(e.target.files ? e.target.files[0] : null)} className="form-input" style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1' }} />
-                        {newEvent.image_url && !selectedImageFile && <p style={{ fontSize: '0.8rem', color: '#64748b' }}>Gambar sedia ada: {newEvent.image_url}</p>}
+                        {newEvent.image_url && !selectedImageFile && <p style={{ fontSize: '0.8rem', color: '#64748b' }}>Gambar poster sedia ada: {newEvent.image_url}</p>}
+                      </div>
+
+                      {/* Bahagian Tetapan E-Sijil */}
+                      <div style={{ gridColumn: '1 / -1', padding: '1.25rem', backgroundColor: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer', fontWeight: '600', color: '#1e293b', fontSize: '0.95rem' }}>
+                            <input
+                              type="checkbox"
+                              checked={!!newEvent.has_certificate}
+                              onChange={e => setNewEvent({ ...newEvent, has_certificate: e.target.checked })}
+                              style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                            />
+                            <span>Sediakan E-Sijil Penyertaan bagi aktiviti / program ini</span>
+                          </label>
+                          {newEvent.has_certificate && (
+                            <span style={{ fontSize: '0.8rem', color: '#059669', backgroundColor: '#dcfce7', padding: '0.2rem 0.6rem', borderRadius: '10px', fontWeight: '600' }}>
+                              E-Sijil Aktif
+                            </span>
+                          )}
+                        </div>
+
+                        {newEvent.has_certificate && (
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.25rem', marginTop: '1.25rem', paddingTop: '1.25rem', borderTop: '1px solid #e2e8f0' }}>
+                            <div>
+                              <label style={{ fontSize: '0.85rem', fontWeight: '600', color: '#475569', display: 'block', marginBottom: '0.4rem' }}>
+                                Muat Naik Templat Sijil (Canva - PNG / JPG)
+                              </label>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                onChange={e => setSelectedCertTemplateFile(e.target.files ? e.target.files[0] : null)}
+                                className="form-input"
+                                style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }}
+                              />
+                              <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.35rem', lineHeight: '1.4' }}>
+                                * Muat naik rekabentuk sijil dari Canva (biarkan ruang nama kosong). Sistem akan meletakkan nama peserta akaun secara automatik. Jika tiada templat dimuat naik, sistem akan guna format sijil standard.
+                              </p>
+                              {newEvent.certificate_template_url && !selectedCertTemplateFile && (
+                                <div style={{ marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                  <span style={{ fontSize: '0.8rem', color: '#059669', fontWeight: '500' }}>✓ Templat tersimpan</span>
+                                  <a href={newEvent.certificate_template_url} target="_blank" rel="noreferrer" style={{ fontSize: '0.8rem', color: '#2563eb', textDecoration: 'underline' }}>Lihat Templat</a>
+                                </div>
+                              )}
+                            </div>
+
+                            <div>
+                              <label style={{ fontSize: '0.85rem', fontWeight: '600', color: '#475569', display: 'block', marginBottom: '0.4rem' }}>
+                                Kedudukan Nama Peserta Dari Atas ({newEvent.certificate_name_y_percent || 50}%)
+                              </label>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                <input
+                                  type="range"
+                                  min={20}
+                                  max={80}
+                                  step={1}
+                                  value={newEvent.certificate_name_y_percent || 50}
+                                  onChange={e => setNewEvent({ ...newEvent, certificate_name_y_percent: Number(e.target.value) })}
+                                  style={{ flex: 1, cursor: 'pointer' }}
+                                />
+                                <span style={{ minWidth: '45px', fontWeight: 'bold', fontSize: '0.9rem', color: '#1e293b' }}>
+                                  {newEvent.certificate_name_y_percent || 50}%
+                                </span>
+                              </div>
+                              <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.25rem' }}>
+                                Selaraskan slider untuk melaraskan kedudukan garisan nama peserta pada rekaan sijil anda.
+                              </p>
+
+                              <div style={{ marginTop: '0.75rem', display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                  <label style={{ fontSize: '0.85rem', fontWeight: '600', color: '#475569' }}>
+                                    Warna Teks:
+                                  </label>
+                                  <input
+                                    type="color"
+                                    value={newEvent.certificate_name_color || '#1e293b'}
+                                    onChange={e => setNewEvent({ ...newEvent, certificate_name_color: e.target.value })}
+                                    style={{ width: '36px', height: '36px', border: 'none', borderRadius: '6px', cursor: 'pointer' }}
+                                  />
+                                </div>
+
+                                {(selectedCertTemplateFile || newEvent.certificate_template_url) && (
+                                  <button
+                                    type="button"
+                                    onClick={handlePreviewCertificate}
+                                    style={{
+                                      backgroundColor: '#0ea5e9',
+                                      color: 'white',
+                                      border: 'none',
+                                      padding: '0.4rem 0.8rem',
+                                      borderRadius: '6px',
+                                      fontSize: '0.85rem',
+                                      fontWeight: '600',
+                                      cursor: 'pointer',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '0.35rem'
+                                    }}
+                                  >
+                                    <Eye size={14} /> Uji Lihat Kedudukan Sijil
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
                       
-                      <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+                      <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem' }}>
+                        {editingEventId && (
+                          <button type="button" onClick={handleCancelEditEvent} style={{ padding: '0.75rem 1.5rem', fontWeight: '600', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', color: '#475569', cursor: 'pointer' }}>
+                            Batal
+                          </button>
+                        )}
                         <button type="submit" className="btn btn-primary" style={{ padding: '0.75rem 2rem', fontWeight: 'bold', borderRadius: '8px', backgroundColor: 'var(--color-primary)' }}>
-                          Tambah Aktiviti
+                          {editingEventId ? 'Kemaskini Aktiviti' : 'Tambah Aktiviti'}
                         </button>
                       </div>
                     </form>
@@ -1556,6 +1770,7 @@ const AdminDashboard: React.FC = () => {
                         <th style={{ padding: '1rem', textAlign: 'left', color: '#475569', fontWeight: '600', borderBottom: '2px solid #e2e8f0' }}>Tarikh & Masa</th>
                         <th style={{ padding: '1rem', textAlign: 'left', color: '#475569', fontWeight: '600', borderBottom: '2px solid #e2e8f0' }}>Tajuk Aktiviti</th>
                         <th style={{ padding: '1rem', textAlign: 'left', color: '#475569', fontWeight: '600', borderBottom: '2px solid #e2e8f0' }}>Lokasi</th>
+                        <th style={{ padding: '1rem', textAlign: 'center', color: '#475569', fontWeight: '600', borderBottom: '2px solid #e2e8f0' }}>E-Sijil</th>
                         <th style={{ padding: '1rem', textAlign: 'left', color: '#475569', fontWeight: '600', borderBottom: '2px solid #e2e8f0' }}>Dikemaskini Oleh</th>
                         <th style={{ padding: '1rem', textAlign: 'center', color: '#475569', fontWeight: '600', borderBottom: '2px solid #e2e8f0' }}>Tindakan</th>
                       </tr>
@@ -1566,6 +1781,17 @@ const AdminDashboard: React.FC = () => {
                           <td style={{ padding: '1rem', color: '#334155', fontWeight: '500' }}>{new Date(ev.event_date).toLocaleString('ms-MY', { dateStyle: 'medium', timeStyle: 'short' })}</td>
                           <td style={{ padding: '1rem', fontWeight: '600', color: '#0f172a' }}>{ev.title}</td>
                           <td style={{ padding: '1rem', color: '#64748b' }}>{ev.venue || '-'}</td>
+                          <td style={{ padding: '1rem', textAlign: 'center' }}>
+                            {ev.has_certificate ? (
+                              <span style={{ backgroundColor: '#dcfce7', color: '#15803d', padding: '0.25rem 0.6rem', borderRadius: '12px', fontSize: '0.8rem', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                                <Award size={13} /> {ev.certificate_template_url ? 'Canva' : 'Standard'}
+                              </span>
+                            ) : (
+                              <span style={{ backgroundColor: '#f1f5f9', color: '#64748b', padding: '0.25rem 0.6rem', borderRadius: '12px', fontSize: '0.8rem', fontWeight: '500' }}>
+                                Tiada
+                              </span>
+                            )}
+                          </td>
                           <td style={{ padding: '1rem', color: '#64748b', fontSize: '0.9rem' }}>{ev.updated_by || '-'}</td>
                           <td style={{ padding: '1rem', textAlign: 'center' }}>
                             <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
@@ -2273,6 +2499,33 @@ const AdminDashboard: React.FC = () => {
           )}
         </div>
       </main>
+
+      {certPreviewModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' }}>
+          <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '1.5rem', maxWidth: '850px', width: '100%', maxHeight: '90vh', display: 'flex', flexDirection: 'column', gap: '1rem', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.3)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.75rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Award size={20} color="#059669" />
+                <h3 style={{ margin: 0, color: '#0f172a', fontSize: '1.15rem' }}>Uji Lihat Templat E-Sijil (Nama Contoh)</h3>
+              </div>
+              <button onClick={() => setCertPreviewModal(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}>
+                <X size={20} />
+              </button>
+            </div>
+            <div style={{ flex: 1, overflowY: 'auto', textAlign: 'center', backgroundColor: '#0f172a', padding: '0.5rem', borderRadius: '8px', minHeight: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <img src={certPreviewModal} alt="Pratonton Sijil" style={{ maxWidth: '100%', maxHeight: '60vh', objectFit: 'contain', boxShadow: '0 4px 6px rgba(0,0,0,0.2)' }} />
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', paddingTop: '0.5rem', borderTop: '1px solid #e2e8f0' }}>
+              <p style={{ margin: 0, fontSize: '0.85rem', color: '#64748b' }}>
+                * Sekiranya kedudukan nama belum tepat, laraskan slider peratusan Y dan tekan 'Uji Lihat' semula.
+              </p>
+              <button onClick={() => setCertPreviewModal(null)} style={{ padding: '0.5rem 1.25rem', backgroundColor: '#0f172a', color: 'white', border: 'none', borderRadius: '6px', fontWeight: '600', cursor: 'pointer' }}>
+                Tutup Pratonton
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isParticipantsModalOpen && selectedEventForParticipants && (
         <div style={{

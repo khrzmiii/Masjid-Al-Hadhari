@@ -18,6 +18,9 @@ interface UserEvent {
   venue?: string;
   status?: string;
   has_certificate?: boolean;
+  certificate_template_url?: string;
+  certificate_name_y_percent?: number;
+  certificate_name_color?: string;
   joined_at?: string;
 }
 
@@ -34,6 +37,7 @@ const ProfilePage: React.FC = () => {
 
   // UI state
   const [activeTab, setActiveTab] = useState<'profil' | 'aktiviti' | 'keselamatan'>('profil');
+  const [downloadingCertId, setDownloadingCertId] = useState<string | null>(null);
   const [message, setMessage] = useState({ type: '', text: '' });
   const [loading, setLoading] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -230,8 +234,7 @@ const ProfilePage: React.FC = () => {
     }
   };
 
-  // Download e-Certificate
-  const handleDownloadCertificate = (ev: UserEvent) => {
+  const generateStandardCertificate = (ev: UserEvent, participantName: string, cleanTitle: string) => {
     try {
       const doc = new jsPDF({
         orientation: 'landscape',
@@ -291,7 +294,6 @@ const ProfilePage: React.FC = () => {
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(22);
       doc.setTextColor(15, 23, 42);
-      const participantName = (user?.name || name || 'Peserta').toUpperCase();
       doc.text(participantName, width / 2, 98, { align: 'center' });
 
       // Underline for name
@@ -355,12 +357,92 @@ const ProfilePage: React.FC = () => {
       doc.text('Jawatankuasa Pengurusan Masjid Al-Hadhari', width - 85, sigY + 14, { align: 'center' });
 
       // Save the PDF
-      const cleanTitle = ev.title.replace(/[^a-zA-Z0-9]/g, '_');
       doc.save(`E-Sijil_${cleanTitle}.pdf`);
     } catch (err) {
       console.error('Failed to generate certificate', err);
       alert('Gagal menjana e-Sijil. Sila cuba lagi.');
     }
+  };
+
+  // Download e-Certificate (Supports Canva template overlay & standard fallback)
+  const handleDownloadCertificate = async (ev: UserEvent) => {
+    const participantName = (user?.name || name || 'Peserta').toUpperCase();
+    const cleanTitle = ev.title.replace(/[^a-zA-Z0-9]/g, '_');
+    const cleanName = participantName.replace(/[^a-zA-Z0-9]/g, '_');
+
+    // Case A: Custom Canva Template Image Overlay
+    if (ev.certificate_template_url) {
+      setDownloadingCertId(ev.id);
+      try {
+        await new Promise<void>((resolve, reject) => {
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          img.src = ev.certificate_template_url!;
+          img.onload = () => {
+            try {
+              const canvas = document.createElement('canvas');
+              canvas.width = img.naturalWidth || img.width;
+              canvas.height = img.naturalHeight || img.height;
+              const ctx = canvas.getContext('2d');
+              if (!ctx) throw new Error('Konteks kanvas tidak ditemui.');
+
+              // Draw original Canva template image
+              ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+              // Calculate Y position based on admin configuration (default 50%)
+              const yPercent = ev.certificate_name_y_percent !== undefined ? Number(ev.certificate_name_y_percent) : 50;
+              const nameY = canvas.height * (yPercent / 100);
+              const nameColor = ev.certificate_name_color || '#1e293b';
+
+              const baseFontSize = Math.max(24, Math.round(canvas.width * 0.034));
+              ctx.font = `bold ${baseFontSize}px "Helvetica Neue", Helvetica, Arial, sans-serif`;
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'middle';
+              ctx.fillStyle = nameColor;
+
+              // Ensure text does not overflow template boundaries
+              let textWidth = ctx.measureText(participantName).width;
+              let adjustedFontSize = baseFontSize;
+              while (textWidth > canvas.width * 0.8 && adjustedFontSize > 16) {
+                adjustedFontSize -= 2;
+                ctx.font = `bold ${adjustedFontSize}px "Helvetica Neue", Helvetica, Arial, sans-serif`;
+                textWidth = ctx.measureText(participantName).width;
+              }
+
+              // Draw participant account name
+              ctx.fillText(participantName, canvas.width / 2, nameY);
+
+              // Export to jsPDF matching canvas dimensions
+              const orientation = canvas.width >= canvas.height ? 'landscape' : 'portrait';
+              const doc = new jsPDF({
+                orientation,
+                unit: 'px',
+                format: [canvas.width, canvas.height]
+              });
+
+              const imgData = canvas.toDataURL('image/jpeg', 0.95);
+              doc.addImage(imgData, 'JPEG', 0, 0, canvas.width, canvas.height);
+              doc.save(`E-Sijil_${cleanTitle}_${cleanName}.pdf`);
+              resolve();
+            } catch (canvasErr) {
+              reject(canvasErr);
+            }
+          };
+          img.onerror = () => {
+            reject(new Error('Gagal memuat turun imej templat sijil.'));
+          };
+        });
+      } catch (err) {
+        console.error('Failed to generate Canva template certificate, falling back to standard', err);
+        generateStandardCertificate(ev, participantName, cleanTitle);
+      } finally {
+        setDownloadingCertId(null);
+      }
+      return;
+    }
+
+    // Case B: Standard Built-in Certificate
+    generateStandardCertificate(ev, participantName, cleanTitle);
   };
 
   if (!user) return null;
@@ -864,30 +946,51 @@ const ProfilePage: React.FC = () => {
                           <span>Butiran</span>
                         </button>
 
-                        <button
-                          onClick={() => handleDownloadCertificate(ev)}
-                          style={{
-                            flex: 1.2,
-                            padding: '0.6rem',
-                            backgroundColor: '#059669',
-                            border: 'none',
-                            borderRadius: '8px',
-                            color: 'white',
-                            fontSize: '0.85rem',
-                            fontWeight: '600',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: '0.35rem',
-                            boxShadow: '0 2px 4px rgba(5, 150, 105, 0.2)'
-                          }}
-                          onMouseOver={e => (e.currentTarget.style.backgroundColor = '#047857')}
-                          onMouseOut={e => (e.currentTarget.style.backgroundColor = '#059669')}
-                        >
-                          <Download size={15} />
-                          <span>E-Sijil</span>
-                        </button>
+                        {ev.has_certificate ? (
+                          <button
+                            onClick={() => handleDownloadCertificate(ev)}
+                            disabled={downloadingCertId === ev.id}
+                            style={{
+                              flex: 1.2,
+                              padding: '0.6rem',
+                              backgroundColor: downloadingCertId === ev.id ? '#94a3b8' : '#059669',
+                              border: 'none',
+                              borderRadius: '8px',
+                              color: 'white',
+                              fontSize: '0.85rem',
+                              fontWeight: '600',
+                              cursor: downloadingCertId === ev.id ? 'not-allowed' : 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '0.35rem',
+                              boxShadow: '0 2px 4px rgba(5, 150, 105, 0.2)'
+                            }}
+                            onMouseOver={e => { if (downloadingCertId !== ev.id) e.currentTarget.style.backgroundColor = '#047857'; }}
+                            onMouseOut={e => { if (downloadingCertId !== ev.id) e.currentTarget.style.backgroundColor = '#059669'; }}
+                          >
+                            <Download size={15} />
+                            <span>{downloadingCertId === ev.id ? 'Menjana...' : 'E-Sijil'}</span>
+                          </button>
+                        ) : (
+                          <span
+                            style={{
+                              flex: 1,
+                              padding: '0.6rem 0.4rem',
+                              backgroundColor: '#f1f5f9',
+                              border: '1px solid #e2e8f0',
+                              borderRadius: '8px',
+                              color: '#94a3b8',
+                              fontSize: '0.8rem',
+                              fontWeight: '500',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }}
+                          >
+                            Tiada Sijil
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1060,30 +1163,37 @@ const ProfilePage: React.FC = () => {
               </div>
 
               <div style={{ display: 'flex', gap: '1rem' }}>
-                <button
-                  onClick={() => handleDownloadCertificate(selectedEventModal)}
-                  style={{
-                    flex: 1,
-                    padding: '0.85rem',
-                    backgroundColor: '#059669',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '8px',
-                    fontWeight: '600',
-                    fontSize: '0.95rem',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '0.5rem',
-                    boxShadow: '0 4px 6px -1px rgba(5, 150, 105, 0.3)'
-                  }}
-                  onMouseOver={e => (e.currentTarget.style.backgroundColor = '#047857')}
-                  onMouseOut={e => (e.currentTarget.style.backgroundColor = '#059669')}
-                >
-                  <Download size={18} />
-                  <span>Muat Turun E-Sijil (PDF)</span>
-                </button>
+                {selectedEventModal.has_certificate ? (
+                  <button
+                    onClick={() => handleDownloadCertificate(selectedEventModal)}
+                    disabled={downloadingCertId === selectedEventModal.id}
+                    style={{
+                      flex: 1,
+                      padding: '0.85rem',
+                      backgroundColor: downloadingCertId === selectedEventModal.id ? '#94a3b8' : '#059669',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '8px',
+                      fontWeight: '600',
+                      fontSize: '0.95rem',
+                      cursor: downloadingCertId === selectedEventModal.id ? 'not-allowed' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.5rem',
+                      boxShadow: '0 4px 6px -1px rgba(5, 150, 105, 0.3)'
+                    }}
+                    onMouseOver={e => { if (downloadingCertId !== selectedEventModal.id) e.currentTarget.style.backgroundColor = '#047857'; }}
+                    onMouseOut={e => { if (downloadingCertId !== selectedEventModal.id) e.currentTarget.style.backgroundColor = '#059669'; }}
+                  >
+                    <Download size={18} />
+                    <span>{downloadingCertId === selectedEventModal.id ? 'Menjana E-Sijil...' : 'Muat Turun E-Sijil (PDF)'}</span>
+                  </button>
+                ) : (
+                  <div style={{ flex: 1, padding: '0.75rem', backgroundColor: '#f1f5f9', borderRadius: '8px', color: '#64748b', fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    Program ini tidak menawarkan e-Sijil penyertaan.
+                  </div>
+                )}
 
                 <button
                   onClick={() => setSelectedEventModal(null)}
