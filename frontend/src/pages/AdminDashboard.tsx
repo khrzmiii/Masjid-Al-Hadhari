@@ -17,6 +17,14 @@ interface UserData {
   created_at: string;
 }
 
+const getWhatsAppUrl = (phone?: string) => {
+  if (!phone) return '#';
+  const clean = phone.replace(/\D/g, '');
+  if (!clean) return '#';
+  const formatted = clean.startsWith('60') ? clean : clean.startsWith('0') ? '6' + clean : '60' + clean;
+  return `https://wa.me/${formatted}`;
+};
+
 interface EventData {
   id?: string;
   title: string;
@@ -1235,7 +1243,7 @@ const AdminDashboard: React.FC = () => {
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                   {u.phone_number ? (
                                     <a 
-                                      href={`https://wa.me/6${u.phone_number.replace(/^(+?60|0)/, '')}`}
+                                      href={getWhatsAppUrl(u.phone_number)}
                                       target="_blank"
                                       rel="noopener noreferrer"
                                       style={{ color: '#059669', textDecoration: 'none', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
@@ -1406,7 +1414,7 @@ const AdminDashboard: React.FC = () => {
                           </div>
                           {selectedUserForDetails.phone_number && (
                             <a
-                              href={`https://wa.me/6${selectedUserForDetails.phone_number.replace(/^(+?60|0)/, '')}`}
+                              href={getWhatsAppUrl(selectedUserForDetails.phone_number)}
                               target="_blank"
                               rel="noopener noreferrer"
                               style={{ fontSize: '0.75rem', color: '#059669', textDecoration: 'none', fontWeight: '600', marginTop: '0.35rem', display: 'inline-block' }}
