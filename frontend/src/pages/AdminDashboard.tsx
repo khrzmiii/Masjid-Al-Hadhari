@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, Users, Calendar as CalendarIcon, Settings, Home, Menu, X, Wallet, Package, TrendingUp, TrendingDown, DollarSign, Trash2, FileText } from 'lucide-react';
+import { LogOut, Users, Calendar as CalendarIcon, Settings, Home, Menu, X, Wallet, Package, TrendingUp, TrendingDown, DollarSign, Trash2, FileText, Banknote, CreditCard, Layers } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import './AdminDashboard.css';
@@ -94,6 +94,7 @@ const AdminDashboard: React.FC = () => {
   const [financeTypeFilter, setFinanceTypeFilter] = useState<string>('Semua');
   const [financeCategoryFilter, setFinanceCategoryFilter] = useState<string>('Semua');
   const [financeMethodFilter, setFinanceMethodFilter] = useState<string>('Semua');
+  const [bakiMode, setBakiMode] = useState<'all' | 'cash' | 'online'>('all');
   const [exportMonthKewangan, setExportMonthKewangan] = useState<string>('');
   const [exportMonthAktiviti, setExportMonthAktiviti] = useState<string>('');
   const [exportMonthLogistik, setExportMonthLogistik] = useState<string>('');
@@ -778,6 +779,36 @@ const AdminDashboard: React.FC = () => {
     return true;
   });
 
+  const isCashTransaction = (t: TransactionData) => {
+    const pm = (t.payment_method || '').trim().toLowerCase();
+    if (pm === 'tunai' || pm === 'cash' || pm.includes('tunai') || pm.includes('cash')) return true;
+    if (t.account_code === 'TUNAI' && !pm.includes('talian')) return true;
+    return false;
+  };
+
+  const isOnlineTransaction = (t: TransactionData) => {
+    const pm = (t.payment_method || '').trim().toLowerCase();
+    if (pm === 'atas talian' || pm === 'online' || pm === 'cek' || pm.includes('talian') || pm.includes('transfer') || pm.includes('qr') || pm.includes('bank')) return true;
+    if (t.account_code === 'BANK' && !isCashTransaction(t)) return true;
+    return !isCashTransaction(t);
+  };
+
+  const cashIncome = transactionsList.filter(t => t.type === 'income' && isCashTransaction(t)).reduce((sum, t) => sum + Number(t.amount || 0), 0);
+  const cashExpense = transactionsList.filter(t => t.type === 'expense' && isCashTransaction(t)).reduce((sum, t) => sum + Number(t.amount || 0), 0);
+  const cashBalance = cashIncome - cashExpense;
+
+  const onlineIncome = transactionsList.filter(t => t.type === 'income' && isOnlineTransaction(t)).reduce((sum, t) => sum + Number(t.amount || 0), 0);
+  const onlineExpense = transactionsList.filter(t => t.type === 'expense' && isOnlineTransaction(t)).reduce((sum, t) => sum + Number(t.amount || 0), 0);
+  const onlineBalance = onlineIncome - onlineExpense;
+
+  const totalIncome = transactionsList.filter(t => t.type === 'income').reduce((sum, t) => sum + Number(t.amount || 0), 0);
+  const totalExpense = transactionsList.filter(t => t.type === 'expense').reduce((sum, t) => sum + Number(t.amount || 0), 0);
+  const totalBalance = totalIncome - totalExpense;
+
+  const currentIncome = bakiMode === 'all' ? totalIncome : bakiMode === 'cash' ? cashIncome : onlineIncome;
+  const currentExpense = bakiMode === 'all' ? totalExpense : bakiMode === 'cash' ? cashExpense : onlineExpense;
+  const currentBalance = bakiMode === 'all' ? totalBalance : bakiMode === 'cash' ? cashBalance : onlineBalance;
+
   const hasPengerusi = usersList.some(u => u.role === 'pengerusi');
   const hasTimbalan = usersList.some(u => u.role === 'timbalan_pengerusi');
   const hasSetiausaha = usersList.some(u => u.role === 'setiausaha');
@@ -1118,15 +1149,109 @@ const AdminDashboard: React.FC = () => {
 
           {activeTab === 'finance' && (user?.role === 'super_admin' || user?.role === 'bendahari' || user?.role === 'penolong_bendahari' || user?.role === 'pengerusi' || user?.role === 'timbalan_pengerusi') && (
             <div className="card-container" style={{ gap: '2rem', display: 'flex', flexDirection: 'column' }}>
+              {/* 3-Mode Financial Balance Selector */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.25rem', backgroundColor: 'white', padding: '1rem 1.5rem', borderRadius: '14px', border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: bakiMode === 'cash' ? '#059669' : bakiMode === 'online' ? '#2563eb' : '#0f172a' }}></div>
+                  <div>
+                    <span style={{ fontSize: '0.95rem', fontWeight: '700', color: '#0f172a' }}>Pilihan Mod Baki Semasa:</span>
+                    <span style={{ fontSize: '0.85rem', color: '#64748b', marginLeft: '0.5rem' }}>
+                      {bakiMode === 'all' && 'Baki Keseluruhan (Online + Cash)'}
+                      {bakiMode === 'cash' && 'Baki Wang Tunai / Tabung Fizikal Sahaja'}
+                      {bakiMode === 'online' && 'Baki Akaun Bank / Atas Talian Sahaja'}
+                    </span>
+                  </div>
+                </div>
+
+                <div style={{ display: 'inline-flex', backgroundColor: '#f1f5f9', padding: '4px', borderRadius: '10px', gap: '4px', border: '1px solid #e2e8f0' }}>
+                  <button
+                    type="button"
+                    onClick={() => setBakiMode('all')}
+                    style={{
+                      padding: '0.5rem 1rem',
+                      borderRadius: '8px',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontWeight: '700',
+                      fontSize: '0.85rem',
+                      backgroundColor: bakiMode === 'all' ? '#0f172a' : 'transparent',
+                      color: bakiMode === 'all' ? 'white' : '#475569',
+                      boxShadow: bakiMode === 'all' ? '0 2px 4px rgba(0,0,0,0.15)' : 'none',
+                      transition: 'all 0.2s',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.4rem'
+                    }}
+                  >
+                    <Layers size={15} />
+                    <span>Semua (Online + Cash)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setBakiMode('cash')}
+                    style={{
+                      padding: '0.5rem 1rem',
+                      borderRadius: '8px',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontWeight: '700',
+                      fontSize: '0.85rem',
+                      backgroundColor: bakiMode === 'cash' ? '#059669' : 'transparent',
+                      color: bakiMode === 'cash' ? 'white' : '#475569',
+                      boxShadow: bakiMode === 'cash' ? '0 2px 4px rgba(0,0,0,0.15)' : 'none',
+                      transition: 'all 0.2s',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.4rem'
+                    }}
+                  >
+                    <Banknote size={15} />
+                    <span>Cash (Tunai)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setBakiMode('online')}
+                    style={{
+                      padding: '0.5rem 1rem',
+                      borderRadius: '8px',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontWeight: '700',
+                      fontSize: '0.85rem',
+                      backgroundColor: bakiMode === 'online' ? '#2563eb' : 'transparent',
+                      color: bakiMode === 'online' ? 'white' : '#475569',
+                      boxShadow: bakiMode === 'online' ? '0 2px 4px rgba(0,0,0,0.15)' : 'none',
+                      transition: 'all 0.2s',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.4rem'
+                    }}
+                  >
+                    <CreditCard size={15} />
+                    <span>Online (Atas Talian)</span>
+                  </button>
+                </div>
+              </div>
+
               <div className="finance-cards-wrapper" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem', marginBottom: '1rem' }}>
+                {/* Card 1: Pemasukan */}
                 <div className="glass-panel" style={{ padding: '2rem', background: 'linear-gradient(135deg, #064e3b 0%, #047857 100%)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px', boxShadow: '0 10px 25px -5px rgba(4, 120, 87, 0.4)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div>
-                      <h4 style={{ color: '#a7f3d0', margin: '0 0 0.5rem 0', fontWeight: '500', fontSize: '1.1rem' }}>Jumlah Pemasukan</h4>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                        <h4 style={{ color: '#a7f3d0', margin: 0, fontWeight: '500', fontSize: '1.1rem' }}>
+                          {bakiMode === 'all' ? 'Jumlah Pemasukan' : bakiMode === 'cash' ? 'Pemasukan (Cash)' : 'Pemasukan (Online)'}
+                        </h4>
+                      </div>
                       <h2 style={{ margin: 0, fontSize: '2.5rem', fontWeight: '700', textShadow: '0 2px 4px rgba(0,0,0,0.2)', color: 'white' }}>
                         <span style={{ fontSize: '1.5rem', opacity: 0.8, marginRight: '4px' }}>RM</span>
-                        {transactionsList.filter(t => t.type === 'income').reduce((sum, t) => sum + Number(t.amount || 0), 0).toFixed(2)}
+                        {currentIncome.toFixed(2)}
                       </h2>
+                      <div style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: '#a7f3d0', opacity: 0.9 }}>
+                        {bakiMode === 'all' ? `Tunai: RM ${cashIncome.toFixed(2)} • Online: RM ${onlineIncome.toFixed(2)}` : bakiMode === 'cash' ? 'Kutipan tabung jumaat & derma tunai' : 'Derma QR & pindahan bank'}
+                      </div>
                     </div>
                     <div style={{ padding: '1rem', background: 'rgba(255,255,255,0.1)', borderRadius: '50%', backdropFilter: 'blur(10px)' }}>
                       <TrendingUp size={32} color="#a7f3d0" />
@@ -1134,14 +1259,22 @@ const AdminDashboard: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Card 2: Perbelanjaan */}
                 <div className="glass-panel" style={{ padding: '2rem', background: 'linear-gradient(135deg, #7f1d1d 0%, #b91c1c 100%)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px', boxShadow: '0 10px 25px -5px rgba(185, 28, 28, 0.4)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div>
-                      <h4 style={{ color: '#fecaca', margin: '0 0 0.5rem 0', fontWeight: '500', fontSize: '1.1rem' }}>Jumlah Perbelanjaan</h4>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                        <h4 style={{ color: '#fecaca', margin: 0, fontWeight: '500', fontSize: '1.1rem' }}>
+                          {bakiMode === 'all' ? 'Jumlah Perbelanjaan' : bakiMode === 'cash' ? 'Perbelanjaan (Cash)' : 'Perbelanjaan (Online)'}
+                        </h4>
+                      </div>
                       <h2 style={{ margin: 0, fontSize: '2.5rem', fontWeight: '700', textShadow: '0 2px 4px rgba(0,0,0,0.2)', color: 'white' }}>
                         <span style={{ fontSize: '1.5rem', opacity: 0.8, marginRight: '4px' }}>RM</span>
-                        {transactionsList.filter(t => t.type === 'expense').reduce((sum, t) => sum + Number(t.amount || 0), 0).toFixed(2)}
+                        {currentExpense.toFixed(2)}
                       </h2>
+                      <div style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: '#fecaca', opacity: 0.9 }}>
+                        {bakiMode === 'all' ? `Tunai: RM ${cashExpense.toFixed(2)} • Online: RM ${onlineExpense.toFixed(2)}` : bakiMode === 'cash' ? 'Belanja tunai tangan' : 'Bayaran bil & perbelanjaan bank'}
+                      </div>
                     </div>
                     <div style={{ padding: '1rem', background: 'rgba(255,255,255,0.1)', borderRadius: '50%', backdropFilter: 'blur(10px)' }}>
                       <TrendingDown size={32} color="#fecaca" />
@@ -1149,18 +1282,105 @@ const AdminDashboard: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="glass-panel" style={{ padding: '2rem', background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px', boxShadow: '0 10px 25px -5px rgba(15, 23, 42, 0.4)' }}>
+                {/* Card 3: Baki Semasa (3 Mode Responsive) */}
+                <div className="glass-panel" style={{ 
+                  padding: '2rem', 
+                  background: bakiMode === 'cash' ? 'linear-gradient(135deg, #065f46 0%, #047857 100%)' : bakiMode === 'online' ? 'linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 100%)' : 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', 
+                  color: 'white', 
+                  border: '1px solid rgba(255,255,255,0.1)', 
+                  borderRadius: '16px', 
+                  boxShadow: '0 10px 25px -5px rgba(15, 23, 42, 0.4)',
+                  transition: 'background 0.3s ease'
+                }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <div>
-                      <h4 style={{ color: '#cbd5e1', margin: '0 0 0.5rem 0', fontWeight: '500', fontSize: '1.1rem' }}>Baki Semasa</h4>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.4rem', flexWrap: 'wrap' }}>
+                        <h4 style={{ color: '#cbd5e1', margin: 0, fontWeight: '600', fontSize: '1.1rem' }}>Baki Semasa</h4>
+                        <span style={{
+                          fontSize: '0.75rem',
+                          padding: '0.15rem 0.6rem',
+                          borderRadius: '12px',
+                          backgroundColor: 'rgba(255,255,255,0.2)',
+                          color: 'white',
+                          fontWeight: '700'
+                        }}>
+                          {bakiMode === 'all' ? 'Online + Cash' : bakiMode === 'cash' ? 'Cash Sahaja' : 'Online Sahaja'}
+                        </span>
+                      </div>
+
                       <h2 style={{ margin: 0, fontSize: '2.5rem', fontWeight: '700', textShadow: '0 2px 4px rgba(0,0,0,0.2)', color: 'white' }}>
                         <span style={{ fontSize: '1.5rem', opacity: 0.8, marginRight: '4px' }}>RM</span>
-                        {(
-                          transactionsList.filter(t => t.type === 'income').reduce((sum, t) => sum + Number(t.amount || 0), 0) -
-                          transactionsList.filter(t => t.type === 'expense').reduce((sum, t) => sum + Number(t.amount || 0), 0)
-                        ).toFixed(2)}
+                        {currentBalance.toFixed(2)}
                       </h2>
+
+                      {/* Mini Switcher buttons directly on the card */}
+                      <div style={{ display: 'flex', gap: '4px', marginTop: '0.75rem' }}>
+                        <button
+                          type="button"
+                          onClick={() => setBakiMode('all')}
+                          style={{
+                            padding: '3px 8px',
+                            borderRadius: '6px',
+                            border: 'none',
+                            fontSize: '0.75rem',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            backgroundColor: bakiMode === 'all' ? 'white' : 'rgba(255,255,255,0.15)',
+                            color: bakiMode === 'all' ? '#0f172a' : 'white',
+                            transition: 'all 0.15s'
+                          }}
+                        >
+                          Semua
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setBakiMode('cash')}
+                          style={{
+                            padding: '3px 8px',
+                            borderRadius: '6px',
+                            border: 'none',
+                            fontSize: '0.75rem',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            backgroundColor: bakiMode === 'cash' ? 'white' : 'rgba(255,255,255,0.15)',
+                            color: bakiMode === 'cash' ? '#065f46' : 'white',
+                            transition: 'all 0.15s'
+                          }}
+                        >
+                          Cash
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setBakiMode('online')}
+                          style={{
+                            padding: '3px 8px',
+                            borderRadius: '6px',
+                            border: 'none',
+                            fontSize: '0.75rem',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            backgroundColor: bakiMode === 'online' ? 'white' : 'rgba(255,255,255,0.15)',
+                            color: bakiMode === 'online' ? '#1e40af' : 'white',
+                            transition: 'all 0.15s'
+                          }}
+                        >
+                          Online
+                        </button>
+                      </div>
+
+                      <div style={{ marginTop: '0.6rem', fontSize: '0.8rem', color: '#cbd5e1' }}>
+                        {bakiMode === 'all' && (
+                          <span>Tunai: RM ${cashBalance.toFixed(2)} • Online: RM ${onlineBalance.toFixed(2)}</span>
+                        )}
+                        {bakiMode === 'cash' && (
+                          <span>Masuk: RM ${cashIncome.toFixed(2)} • Keluar: RM ${cashExpense.toFixed(2)}</span>
+                        )}
+                        {bakiMode === 'online' && (
+                          <span>Masuk: RM ${onlineIncome.toFixed(2)} • Keluar: RM ${onlineExpense.toFixed(2)}</span>
+                        )}
+                      </div>
                     </div>
+
                     <div style={{ padding: '1rem', background: 'rgba(255,255,255,0.1)', borderRadius: '50%', backdropFilter: 'blur(10px)' }}>
                       <DollarSign size={32} color="#cbd5e1" />
                     </div>
