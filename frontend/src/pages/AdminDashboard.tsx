@@ -114,7 +114,7 @@ const AdminDashboard: React.FC = () => {
   const [selectedEventForParticipants, setSelectedEventForParticipants] = useState<EventData | null>(null);
   
   const [newTransaction, setNewTransaction] = useState<TransactionData>({
-    account_code: '', amount: 0, type: 'income', description: '', payment_method: 'Atas Talian', category: 'Lain-lain'
+    account_code: 'BANK', amount: 0, type: 'income', description: '', payment_method: 'Atas Talian', category: 'Lain-lain'
   });
   const [editingTransactionId, setEditingTransactionId] = useState<string | null>(null);
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
@@ -347,16 +347,13 @@ const AdminDashboard: React.FC = () => {
   };
 
   const isCashTransaction = (t: Partial<TransactionData>) => {
+    if (t.account_code === 'TUNAI') return true;
+    if (t.account_code === 'BANK') return false;
     const pm = (t.payment_method || '').trim().toLowerCase();
-    if (pm === 'tunai' || pm === 'cash' || pm.includes('tunai') || pm.includes('cash')) return true;
-    if (t.account_code === 'TUNAI' && !pm.includes('talian')) return true;
-    return false;
+    return pm === 'tunai' || pm === 'cash';
   };
 
   const isOnlineTransaction = (t: Partial<TransactionData>) => {
-    const pm = (t.payment_method || '').trim().toLowerCase();
-    if (pm === 'atas talian' || pm === 'online' || pm === 'cek' || pm.includes('talian') || pm.includes('transfer') || pm.includes('qr') || pm.includes('bank')) return true;
-    if (t.account_code === 'BANK' && !isCashTransaction(t)) return true;
     return !isCashTransaction(t);
   };
 
@@ -442,7 +439,7 @@ const AdminDashboard: React.FC = () => {
 
       if (response.ok) {
         fetchFinanceData();
-        setNewTransaction({ account_code: '', amount: 0, type: 'income', description: '', payment_method: 'Atas Talian', category: 'Lain-lain' });
+        setNewTransaction({ account_code: 'BANK', amount: 0, type: 'income', description: '', payment_method: 'Atas Talian', category: 'Lain-lain' });
         setEditingTransactionId(null);
         setReceiptFile(null);
         alert(editingTransactionId ? 'Transaksi berjaya dikemaskini.' : 'Transaksi berjaya ditambah.');
@@ -457,12 +454,14 @@ const AdminDashboard: React.FC = () => {
 
   const handleEditTransactionClick = (t: TransactionData) => {
     setEditingTransactionId(t.id!);
+    const acc = t.account_code || (t.payment_method === 'Tunai' ? 'TUNAI' : 'BANK');
+    const pm = acc === 'TUNAI' ? 'Tunai' : (t.payment_method === 'Tunai' ? 'Atas Talian' : (t.payment_method || 'Atas Talian'));
     setNewTransaction({
-      account_code: t.account_code,
+      account_code: acc,
       amount: t.amount,
       type: t.type,
       description: t.description,
-      payment_method: t.payment_method || 'Atas Talian',
+      payment_method: pm,
       category: t.category || 'Lain-lain',
       receipt_url: t.receipt_url
     });
@@ -1465,8 +1464,17 @@ const AdminDashboard: React.FC = () => {
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                       <label style={{ fontSize: '0.9rem', fontWeight: '600', color: '#475569' }}>Akaun Terlibat</label>
-                      <select required value={newTransaction.account_code} onChange={e => setNewTransaction({...newTransaction, account_code: e.target.value})} className="form-input" style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', fontWeight: '500' }}>
-                        <option value="" disabled>-- Pilih Akaun --</option>
+                      <select
+                        required
+                        value={newTransaction.account_code}
+                        onChange={e => {
+                          const acc = e.target.value;
+                          const pm = acc === 'TUNAI' ? 'Tunai' : (newTransaction.payment_method === 'Tunai' ? 'Atas Talian' : newTransaction.payment_method);
+                          setNewTransaction({ ...newTransaction, account_code: acc, payment_method: pm });
+                        }}
+                        className="form-input"
+                        style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', fontWeight: '500' }}
+                      >
                         <option value="BANK">Duit Dalam Bank</option>
                         <option value="TUNAI">Pegangan (Tunai)</option>
                       </select>
@@ -1493,10 +1501,25 @@ const AdminDashboard: React.FC = () => {
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                       <label style={{ fontSize: '0.9rem', fontWeight: '600', color: '#475569' }}>Kaedah Pembayaran</label>
-                      <select required value={newTransaction.payment_method} onChange={e => setNewTransaction({...newTransaction, payment_method: e.target.value})} className="form-input" style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', fontWeight: '500' }}>
-                        <option value="Atas Talian">Atas Talian (Transfer/QR)</option>
-                        <option value="Tunai">Tunai (Cash)</option>
-                        <option value="Cek">Cek</option>
+                      <select
+                        required
+                        value={newTransaction.payment_method}
+                        onChange={e => {
+                          const pm = e.target.value;
+                          const acc = pm === 'Tunai' ? 'TUNAI' : 'BANK';
+                          setNewTransaction({ ...newTransaction, payment_method: pm, account_code: acc });
+                        }}
+                        className="form-input"
+                        style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', fontWeight: '500' }}
+                      >
+                        {newTransaction.account_code === 'TUNAI' ? (
+                          <option value="Tunai">Tunai (Cash)</option>
+                        ) : (
+                          <>
+                            <option value="Atas Talian">Atas Talian (Transfer/QR)</option>
+                            <option value="Cek">Cek</option>
+                          </>
+                        )}
                       </select>
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -1509,7 +1532,7 @@ const AdminDashboard: React.FC = () => {
                         {editingTransactionId ? 'Kemaskini Transaksi' : 'Simpan Transaksi'}
                       </button>
                       {editingTransactionId && (
-                        <button type="button" onClick={() => { setEditingTransactionId(null); setNewTransaction({ account_code: '', amount: 0, type: 'income', description: '', payment_method: 'Atas Talian', category: 'Lain-lain' }); setReceiptFile(null); }} style={{ padding: '0.8rem 1.5rem', backgroundColor: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', transition: 'all 0.2s' }}>
+                        <button type="button" onClick={() => { setEditingTransactionId(null); setNewTransaction({ account_code: 'BANK', amount: 0, type: 'income', description: '', payment_method: 'Atas Talian', category: 'Lain-lain' }); setReceiptFile(null); }} style={{ padding: '0.8rem 1.5rem', backgroundColor: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', transition: 'all 0.2s' }}>
                           Batal
                         </button>
                       )}

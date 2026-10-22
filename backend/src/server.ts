@@ -801,10 +801,10 @@ router.get('/admin/finance/transactions', verifyToken, verifyRole(['bendahari', 
 });
 
 const isCashTx = (t: any) => {
+  if (t.account_code === 'TUNAI') return true;
+  if (t.account_code === 'BANK') return false;
   const pm = (t.payment_method || '').trim().toLowerCase();
-  if (pm === 'tunai' || pm === 'cash' || pm.includes('tunai') || pm.includes('cash')) return true;
-  if (t.account_code === 'TUNAI' && !pm.includes('talian')) return true;
-  return false;
+  return pm === 'tunai' || pm === 'cash';
 };
 
 const getAvailableBalances = async (db: any, excludeId?: string) => {
@@ -851,10 +851,20 @@ router.post('/admin/finance/transactions', verifyToken, verifyRole(['bendahari',
       return res.status(400).json({ error: 'Amaun transaksi mestilah nombor positif lebih daripada 0.00.' });
     }
 
+    // Enforce alignment between account_code and payment_method
+    if (account_code === 'TUNAI' && payment_method && payment_method !== 'Tunai') {
+      return res.status(400).json({ error: 'Ralat: Akaun Pegangan (Tunai) hanya boleh menggunakan kaedah pembayaran Tunai.' });
+    }
+    if (account_code === 'BANK' && payment_method === 'Tunai') {
+      return res.status(400).json({ error: 'Ralat: Kaedah pembayaran Tunai tidak boleh digunakan untuk akaun Duit Dalam Bank. Sila pilih Atas Talian atau Cek.' });
+    }
+
+    const finalPaymentMethod = account_code === 'TUNAI' ? 'Tunai' : (payment_method || 'Atas Talian');
+    const isSpendingCash = (account_code === 'TUNAI');
+
     // Validation: Block overspending / negative balance
     if (type === 'expense') {
       const { cashBalance, onlineBalance, totalBalance } = await getAvailableBalances(db);
-      const isSpendingCash = (payment_method === 'Tunai' || account_code === 'TUNAI');
 
       if (isSpendingCash && numAmount > cashBalance) {
         return res.status(400).json({
@@ -879,7 +889,7 @@ router.post('/admin/finance/transactions', verifyToken, verifyRole(['bendahari',
     const modifiedBy = req.user?.name || 'Sistem';
     await db.run(
       'INSERT INTO transactions (id, account_code, amount, type, payment_method, category, description, status, receipt_url, updated_by, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)',
-      [id, account_code, numAmount, type, payment_method || 'lain-lain', category || 'lain-lain', description, 'completed', receipt_url || null, modifiedBy]
+      [id, account_code, numAmount, type, finalPaymentMethod, category || 'lain-lain', description, 'completed', receipt_url || null, modifiedBy]
     );
 
     res.status(201).json({ success: true });
@@ -909,9 +919,19 @@ router.put('/admin/finance/transactions/:id', verifyToken, verifyRole(['bendahar
       return res.status(404).json({ error: 'Transaksi tidak dijumpai.' });
     }
 
+    // Enforce alignment between account_code and payment_method
+    if (account_code === 'TUNAI' && payment_method && payment_method !== 'Tunai') {
+      return res.status(400).json({ error: 'Ralat: Akaun Pegangan (Tunai) hanya boleh menggunakan kaedah pembayaran Tunai.' });
+    }
+    if (account_code === 'BANK' && payment_method === 'Tunai') {
+      return res.status(400).json({ error: 'Ralat: Kaedah pembayaran Tunai tidak boleh digunakan untuk akaun Duit Dalam Bank. Sila pilih Atas Talian atau Cek.' });
+    }
+
+    const finalPaymentMethod = account_code === 'TUNAI' ? 'Tunai' : (payment_method || 'Atas Talian');
+    const isSpendingCash = (account_code === 'TUNAI');
+
     // Validation: Check if update causes negative balance
     const { cashBalance, onlineBalance, totalBalance } = await getAvailableBalances(db, id);
-    const isSpendingCash = (payment_method === 'Tunai' || account_code === 'TUNAI');
 
     if (type === 'expense') {
       if (isSpendingCash && numAmount > cashBalance) {
@@ -947,7 +967,7 @@ router.put('/admin/finance/transactions/:id', verifyToken, verifyRole(['bendahar
 
     await db.run(
       'UPDATE transactions SET account_code = ?, amount = ?, type = ?, description = ?, payment_method = ?, category = ?, receipt_url = ?, updated_by = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-      [account_code, numAmount, type, description, payment_method, category, receipt_url !== undefined ? receipt_url : transaction.receipt_url, modifiedBy, id]
+      [account_code, numAmount, type, description, finalPaymentMethod, category, receipt_url !== undefined ? receipt_url : transaction.receipt_url, modifiedBy, id]
     );
     
     res.status(200).json({ success: true });
